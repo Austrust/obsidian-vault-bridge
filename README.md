@@ -13,9 +13,12 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 - Read, search, create, and edit Markdown notes through a local MCP bridge.
 - Revision checks to prevent stale edits from overwriting your changes, with a before/after record and conflict-aware undo.
 - `/visualize` generates interactive DataviewJS cards; run them in chat and save them as notes.
+- Selectable chat text and per-message Markdown copy controls.
+- Rendered Markdown with scrollable tables and preserved code indentation.
+- Separate, collapsed tool-call progress and clearly labeled final answers.
 - Collapsible model-provided reasoning, titled session history, cancellation, and a no-API interactive example.
 
-**Status:** early desktop preview, version 0.1.1. Tested on Linux with Obsidian 1.14.4 and OpenCode 1.19.0. Not yet listed in the Obsidian community plugin directory.
+**Status:** early desktop preview, version 0.1.2. Tested on Linux with Obsidian 1.14.4 and OpenCode 1.19.0. Not yet listed in the Obsidian community plugin directory.
 
 ## Install
 

@@ -15,10 +15,12 @@ function messageView(message, labels = {}, sourcePath = '') {
   const done = !!info.time?.completed || info.role === 'user';
   const reasoning = parts.filter(p => p.type === 'reasoning');
   const tools = parts.filter(p => p.type === 'tool');
+  const text = labels[info.id] || parts.filter(p => p.type === 'text').map(p => p.text || '').join('\n');
+  const kind = info.role === 'user' ? 'user' : info.finish === 'tool-calls' || (tools.length && info.finish !== 'stop') ? 'progress' : info.error ? 'error' : done ? 'answer' : 'draft';
   return {
+    kind, tools: tools.map(p => (p.state?.status === 'completed' ? '已完成：' : p.state?.status === 'error' ? '工具失败：' : '正在执行：') + p.tool.replace(/^note_agent_/, '')),
     id: info.id, role: info.role, done, sourcePath,
-    text: labels[info.id] || parts.filter(p => p.type === 'text').map(p => p.text || '').join('\n') ||
-      tools.map(p => (p.state?.status === 'completed' ? '已完成：' : p.state?.status === 'error' ? '工具失败：' : '正在执行：') + p.tool.replace(/^note_agent_/, '')).join('\n'),
+    text,
     reasoning: reasoning.map(p => p.text || '').join('\n\n'),
     reasoningDone: done || (reasoning.length > 0 && reasoning.every(p => p.time?.end != null)),
   };

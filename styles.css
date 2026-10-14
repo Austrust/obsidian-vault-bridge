@@ -1,4 +1,4 @@
-.na-root{display:flex;flex-direction:column;height:100%;padding:12px!important;gap:10px;min-width:260px}.na-header{display:flex;align-items:center;justify-content:space-between}.na-header h3{margin:0}.na-badge{font-size:10px;letter-spacing:.06em;color:var(--text-muted);background:var(--background-secondary);padding:5px;border-radius:5px}.na-actions{display:flex;gap:6px;flex-wrap:wrap}.na-actions button{font-size:12px;height:28px}.na-status{font-size:12px;color:var(--text-muted);padding:7px 9px;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)}.na-log{flex:1;overflow:auto;min-height:120px;display:flex;flex-direction:column;gap:12px}.na-message{padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}.na-message.user{background:var(--background-secondary)}.na-role{font-size:11px;color:var(--text-muted);margin-bottom:6px}.na-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}.na-body p{margin:0 0 8px}.na-compose textarea{width:100%;resize:vertical;min-height:90px;margin-bottom:8px}.na-context{display:flex;gap:4px;flex-wrap:wrap}.na-chip{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}.na-artifact{border:1px solid var(--interactive-accent);border-radius:10px;padding:12px}.na-artifact h4{margin:0 0 8px}.na-card{margin-top:12px;min-height:60px}.na-muted{color:var(--text-muted);font-size:12px}.na-artifact pre{white-space:pre-wrap;font-size:11px;max-height:180px;overflow:auto}.na-changes{max-height:160px;overflow:auto;font-size:12px}.na-changes:empty{display:none}.na-diff{display:grid;grid-template-columns:1fr 1fr;gap:4px}.na-diff pre{white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px}.na-diff pre:first-child{background:rgba(200,60,60,.08)}.na-diff pre:last-child{background:rgba(40,180,100,.08)}
+.na-root{display:flex;flex-direction:column;height:100%;padding:12px!important;gap:10px;min-width:260px}.na-header{display:flex;align-items:center;justify-content:space-between}.na-header h3{margin:0}.na-badge{font-size:10px;letter-spacing:.06em;color:var(--text-muted);background:var(--background-secondary);padding:5px;border-radius:5px}.na-actions{display:flex;gap:6px;flex-wrap:wrap}.na-actions button{font-size:12px;height:28px}.na-status{font-size:12px;color:var(--text-muted);padding:7px 9px;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)}.na-log{flex:1;overflow:auto;min-height:120px;display:flex;flex-direction:column;gap:12px}.na-message{padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}.na-message.user{background:var(--background-secondary)}.na-role{font-size:11px;color:var(--text-muted);margin-bottom:6px}.na-body{white-space:normal;overflow-wrap:anywhere;font-size:14px;min-width:0}.na-body p{margin:0 0 8px}.na-compose textarea{width:100%;resize:vertical;min-height:90px;margin-bottom:8px}.na-context{display:flex;gap:4px;flex-wrap:wrap}.na-chip{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}.na-artifact{border:1px solid var(--interactive-accent);border-radius:10px;padding:12px}.na-artifact h4{margin:0 0 8px}.na-card{margin-top:12px;min-height:60px}.na-muted{color:var(--text-muted);font-size:12px}.na-artifact pre{white-space:pre-wrap;font-size:11px;max-height:180px;overflow:auto}.na-changes{max-height:160px;overflow:auto;font-size:12px}.na-changes:empty{display:none}.na-diff{display:grid;grid-template-columns:1fr 1fr;gap:4px}.na-diff pre{white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px}.na-diff pre:first-child{background:rgba(200,60,60,.08)}.na-diff pre:last-child{background:rgba(40,180,100,.08)}
 /* Keep the composer inside the leaf, above Obsidian's overlaid status bar. */
 .na-root{box-sizing:border-box;min-height:0;min-width:0;overflow:hidden;padding-bottom:calc(12px + var(--na-statusbar-space,26px))!important}
 .na-root>.na-header,.na-root>.na-actions,.na-status,.na-session-title,.na-compose,.na-context{flex-shrink:0}
@@ -14,3 +14,33 @@
 .na-thinking[hidden]{display:none}
 .na-thinking summary{cursor:pointer;padding:4px 0}
 .na-reasoning{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;border-left:2px solid var(--background-modifier-border);padding:8px}
+
+/* Obsidian disables selection in many non-editor panes; chat content is selectable. */
+.na-message,.na-body,.na-body *,.na-reasoning,.na-tool-list{user-select:text;-webkit-user-select:text}
+.na-message-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.na-message-header .na-role{margin:0}
+.na-copy{font-size:11px;height:25px;flex-shrink:0}
+.na-plain{white-space:pre-wrap}
+.na-markdown{white-space:normal;line-height:1.55;font-size:14px;padding:0;margin:0}
+.na-markdown>:first-child{margin-top:0}
+.na-markdown>:last-child{margin-bottom:0}
+.na-markdown p{margin-block:0 0.65em}
+.na-markdown :is(ul,ol){margin-block:0.5em;padding-inline-start:1.6em}
+.na-markdown li>p{margin-block:0.25em}
+.na-markdown :is(h1,h2,h3,h4,h5,h6){margin-block:1em 0.5em;line-height:1.3}
+.na-markdown h1{font-size:1.4em}.na-markdown h2{font-size:1.25em}.na-markdown h3{font-size:1.1em}
+.na-markdown pre{white-space:pre;overflow-x:auto;max-width:100%;padding:10px}
+.na-markdown pre code{white-space:pre;overflow-wrap:normal;word-break:normal}
+.na-markdown blockquote{margin-inline:0;padding-inline-start:12px;border-left:3px solid var(--background-modifier-border)}
+.na-table-scroll{overflow-x:auto;max-width:100%;margin-block:0.65em}
+.na-markdown table{border-collapse:collapse;border-spacing:0;width:max-content;min-width:100%;margin:0}
+.na-markdown :is(td,th){border:1px solid var(--background-modifier-border);padding:6px 10px;white-space:normal;min-width:80px;max-width:28rem;vertical-align:top}
+.na-markdown th{background:var(--background-secondary);font-weight:600}
+.na-progress{font-size:12px;color:var(--text-muted);margin-top:8px}
+.na-progress[hidden]{display:none}
+.na-progress summary{cursor:pointer;padding:4px 0}
+.na-progress-body{border-left:2px solid var(--background-modifier-border);padding:6px 10px}
+.na-tool-list{white-space:pre-wrap;margin-bottom:6px}
+.na-intermediate{background:var(--background-secondary);border-style:dashed}
+.na-intermediate .na-body{font-size:12px}
+.na-intermediate .na-markdown{font-size:12px}

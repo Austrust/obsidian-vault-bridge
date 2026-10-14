@@ -1,8 +1,8 @@
 Element.prototype.empty=function(){this.replaceChildren();};Element.prototype.addClass=function(c){this.classList.add(c);};
 Element.prototype.createEl=function(tag,options={}){const e=document.createElement(tag);if(typeof options==='string')options={cls:options};if(options.cls)e.className=options.cls;if(options.text!==undefined)e.textContent=options.text;for(const [k,v] of Object.entries(options.attr||{}))e.setAttribute(k,v);if(options.type)e.type=options.type;this.append(e);return e;};
 Element.prototype.createDiv=function(o){return this.createEl('div',o);};Element.prototype.createSpan=function(o){return this.createEl('span',o);};
-class Component{addChild(c){return c;}register(){}registerDomEvent(el,event,fn){el.addEventListener(event,fn);}load(){}unload(){}}
+class Component{addChild(c){return c;}removeChild(){}register(){}registerDomEvent(el,event,fn){el.addEventListener(event,fn);}load(){}unload(){}}
 class ItemView extends Component{constructor(){super();this.contentEl=document.querySelector('#leaf');this.app={};}}
 class FuzzySuggestModal{constructor(){}setPlaceholder(){}open(){const out=document.querySelector('#history');out.replaceChildren();for(const s of this.getItems()){const b=out.createEl('button',{text:this.getItemText(s)});b.onclick=()=>this.onChooseItem(s);}}}
-const obsidian={Plugin:class{},ItemView,PluginSettingTab:class{},Setting:class{},Notice:class{},MarkdownView:class{},MarkdownRenderer:{render:async(app,t,el)=>el.textContent=t},Component,FuzzySuggestModal};
-const require=name=>name==='obsidian'?obsidian:{};const module={exports:{}};
+const obsidian={Plugin:class{},ItemView,PluginSettingTab:class{},Setting:class{},Notice:class{},MarkdownView:class{},MarkdownRenderer:{render:async(app,t,el)=>{if(window.marked)el.innerHTML=window.marked.parse(t);else el.textContent=t;}},Component,FuzzySuggestModal};
+const require=name=>name==='obsidian'?obsidian:name==='electron'?{clipboard:{writeText:text=>{document.querySelector('#copied').value=text;}}}:{};const module={exports:{}};

@@ -42,6 +42,7 @@ class AgentView extends ItemView {
     const win=root.ownerDocument.defaultView;
     if(win.ResizeObserver){const observer=new win.ResizeObserver(()=>this.fitStatusBar());observer.observe(root);const status=root.ownerDocument.querySelector('.status-bar');if(status)observer.observe(status);this.register(()=>observer.disconnect());}
     this.registerDomEvent(win,'resize',()=>this.fitStatusBar());
+    this.registerDomEvent(root.ownerDocument,'selectionchange',()=>{if(root.ownerDocument.getSelection()?.isCollapsed)this.render();});
     this.render();
   }
   fitStatusBar(){const root=this.contentEl;const bar=root.ownerDocument.querySelector('.status-bar');let overlap=0;if(bar){const a=root.getBoundingClientRect(),b=bar.getBoundingClientRect();if(b.width&&b.height&&a.right>b.left&&a.left<b.right&&a.bottom>b.top&&a.top<b.bottom)overlap=Math.min(b.height,a.bottom-b.top);}root.style.setProperty('--na-statusbar-space',overlap+'px');}
@@ -54,14 +55,58 @@ class AgentView extends ItemView {
     this.title.textContent=this.p.sessionTitle||'新对话';this.status.textContent=this.p.status;this.send.disabled=this.p.running||this.p.preparing;this.renderContext();
     const messages=this.p.transcript;
     const wanted=new Set(messages.map(m=>m.id));
-    for(const [id,row] of this.rows)if(!wanted.has(id)){row.component?.unload();row.el.remove();this.rows.delete(id);}
-    for(const m of messages){let row=this.rows.get(m.id);if(!row){const el=this.log.createDiv('na-message '+m.role);el.createDiv({text:m.role==='user'?'你':'DeepSeek / Agent',cls:'na-role'});const thinking=el.createEl('details',{cls:'na-thinking'});thinking.hidden=true;const summary=thinking.createEl('summary');const reasoning=thinking.createDiv('na-reasoning');const body=el.createDiv('na-body');row={el,body,thinking,summary,reasoning,text:null,component:new Component()};this.addChild(row.component);this.rows.set(m.id,row);}
-      row.thinking.hidden=!m.reasoning;row.summary.textContent=m.reasoningDone?'思考过程':'思考中…';if(row.reasoning.textContent!==m.reasoning)row.reasoning.textContent=m.reasoning||'';
-      if(row.text!==m.text||row.done!==m.done){row.component.unload();row.component.load();row.text=m.text;row.done=m.done;row.body.empty();if(m.done){MarkdownRenderer.render(this.app,m.text.replace(/^(`{3,}|~{3,})(dataviewjs|dataview)\b/gm,'$1javascript'),row.body,(m.sourcePath||'')+'?no-dataview',row.component).catch(()=>{row.body.textContent=m.text;});}else row.body.textContent=m.text;}
+    for(const [id,row] of this.rows)if(!wanted.has(id)){row.revision++;row.component?.unload();this.removeChild(row.component);row.el.remove();this.rows.delete(id);}
+    for(const m of messages){
+      let row=this.rows.get(m.id);
+      if(!row){
+        const el=this.log.createDiv('na-message '+m.role);const header=el.createDiv('na-message-header');const label=header.createDiv('na-role');
+        row={el,label,text:null,revision:0,component:new Component(),message:m};this.addChild(row.component);
+        row.copy=this.button(header,'复制 Markdown',()=>this.copyText(row.message.text||''),'na-copy');
+        const thinking=el.createEl('details',{cls:'na-thinking'});const summary=thinking.createEl('summary');const reasoning=thinking.createDiv('na-reasoning');
+        row.copyReasoning=this.button(thinking,'复制思考',()=>this.copyText(row.message.reasoning||''),'na-copy');
+        const progress=el.createEl('details',{cls:'na-progress'});const progressSummary=progress.createEl('summary');const progressBody=progress.createDiv('na-progress-body');
+        const body=el.createDiv('na-body');const toolBox=progressBody.createDiv('na-tool-list');
+        Object.assign(row,{thinking,summary,reasoning,progress,progressSummary,progressBody,body,toolBox});this.rows.set(m.id,row);
+      }
+      row.message=m;
+      const kind=m.kind||(m.role==='user'?'user':m.done?'answer':'draft');
+      row.el.classList.toggle('na-intermediate',kind==='progress');
+      row.label.textContent={user:'你',progress:'执行过程 · 非最终回答',answer:'最终回答',draft:'生成中 · 尚未完成',error:'未完成的回答'}[kind];
+      row.copy.textContent=kind==='user'?'复制内容':'复制 Markdown';row.copy.disabled=!m.text;
+      row.thinking.hidden=!m.reasoning;row.summary.textContent=m.reasoningDone?'思考过程':'思考中…';
+      if(row.reasoning.textContent!==(m.reasoning||''))row.reasoning.textContent=m.reasoning||'';
+      const hasProgress=kind==='progress'||(m.tools||[]).length>0;row.progress.hidden=!hasProgress;
+      row.progressSummary.textContent=m.done?'查看执行过程':'正在执行…';
+      const toolText=(m.tools||[]).join('\n');if(row.toolBox.textContent!==toolText)row.toolBox.textContent=toolText;
+      const parent=kind==='progress'?row.progressBody:row.el;if(row.body.parentElement!==parent)parent.append(row.body);
+      this.renderMessageBody(row,m,kind);
     }
     for(const artifact of this.p.artifacts.filter(a=>a.sessionId===this.p.sessionId))if(!this.cards.has(artifact.id))this.mountCard(artifact);
     for(const [id,c] of this.cards)if(!this.p.artifacts.some(a=>a.id===id&&a.sessionId===this.p.sessionId)){c.component?.unload();c.el.remove();this.cards.delete(id);}
     this.renderChanges();
+  }
+  async copyText(text){
+    // Desktop Obsidian exposes Electron's clipboard without browser focus/permission prompts.
+    const clipboard=require('electron').clipboard;
+    if(clipboard?.writeText)clipboard.writeText(text);
+    else await this.contentEl.ownerDocument.defaultView.navigator.clipboard.writeText(text);
+    new Notice('已复制');
+  }
+  renderMessageBody(row,m,kind){
+    if(row.text===m.text&&row.done===m.done&&row.kind===kind)return;
+    // Polling must not destroy text that the user is currently selecting.
+    const selection=row.body.ownerDocument.getSelection();
+    if(selection&&!selection.isCollapsed&&(row.body.contains(selection.anchorNode)||row.body.contains(selection.focusNode)))return;
+    row.text=m.text;row.done=m.done;row.kind=kind;const revision=++row.revision;
+    const host=row.body.ownerDocument.createElement('div');host.className=kind==='user'?'na-plain':'na-markdown markdown-rendered';
+    const component=new Component();this.addChild(component);
+    const apply=()=>{if(row.revision!==revision||!row.el.isConnected){component.unload();this.removeChild(component);return;}const selected=row.body.ownerDocument.getSelection();if(selected&&!selected.isCollapsed&&(row.body.contains(selected.anchorNode)||row.body.contains(selected.focusNode))){row.text=null;component.unload();this.removeChild(component);return;}row.component.unload();this.removeChild(row.component);row.component=component;row.body.replaceChildren(host);};
+    if(kind==='user'){host.textContent=m.text;apply();return;}
+    const markdown=(m.text||'').replace(/^(`{3,}|~{3,})(dataviewjs|dataview)\b/gm,'$1javascript');
+    MarkdownRenderer.render(this.app,markdown,host,(m.sourcePath||'')+'?no-dataview',component).then(()=>{
+      for(const table of host.querySelectorAll('table')){const wrap=host.ownerDocument.createElement('div');wrap.className='na-table-scroll';wrap.setAttribute('tabindex','0');table.replaceWith(wrap);wrap.append(table);}
+      apply();
+    }).catch(()=>{host.className='na-plain';host.textContent=m.text;apply();});
   }
   mountCard(a){
     const el=this.log.createDiv('na-artifact');el.createEl('h4',{text:a.title});const controls=el.createDiv('na-actions');const body=el.createDiv('na-card');const component=new Component();this.addChild(component);const record={el,body,component};this.cards.set(a.id,record);

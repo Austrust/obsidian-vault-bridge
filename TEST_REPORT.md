@@ -47,3 +47,11 @@
 - 浏览器界面测试使用实际打包 AgentView 和 Obsidian API shim。展开思考区后更新内容，展开状态保留；Shift+Enter 保留换行而不发送，Enter 正常发送；两条旧会话显示不同标题与时间。
 - 360 × 460 像素侧栏、32 像素模拟状态栏：发送按钮底部 436，状态栏顶部 448，间距 12 像素。此次布局验证使用模拟 Obsidian 容器，并非所有原生主题/窗口组合的兼容性测试。
 - 可复现界面：先 `node build.cjs`，再 `node tests/ui/server.cjs`，浏览器访问 http://127.0.0.1:41967 。fixture 不连接模型，也不读取笔记库。
+
+## 0.1.2 回归验证（2026-10-15）
+
+- 16 项 Node 测试通过；新增过程消息与最终回答分类、未完成/中断状态、Markdown 表格及代码原文保留测试。
+- 实际打包 AgentView 的浏览器 fixture 验证：Markdown 复制回调收到完整表格源码与代码缩进；表格为 3 行 3 列；段落间距约 9px；正文 user-select 为 text，white-space 为 normal。
+- 过程消息默认折叠并明确标记非最终回答；正文选中期间更新未替换 DOM，取消选择后补上最新内容。
+- 浏览器 fixture 使用 Marked 17.0.5 作为 GFM 渲染替身，以及 Electron clipboard 的记录替身；生产代码继续使用 Obsidian MarkdownRenderer 与 Electron 系统剪贴板。本轮没有在原生 Obsidian 中自动验证系统剪贴板或全部主题。
+- 要复现 Markdown fixture，将 VAULTBRIDGE_MARKED_PATH 指向本机 marked/lib/marked.umd.js 后运行 node tests/ui/server.cjs。不设置该变量时，fixture 仅作纯文本界面测试。测试渲染器不随插件分发。
