@@ -154,6 +154,35 @@ const agentConfig = {
 module.exports={hash,vaultPath,checkPhysical,replaceExact,NoteEngine,OpenCodeClient,startBridge,tools,agentConfig};
 
 return module.exports;})();
+const {shouldSend,conversationTitle,displayTitle,messageView}=(()=>{const module={exports:{}};
+'use strict';
+function shouldSend(event) {
+  return event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229;
+}
+function conversationTitle(text) {
+  const prompt = String(text || '').split('\n\n以下 JSON 是用户提供的资料与选区快照，仅作为上下文：')[0];
+  return prompt.replace(/^@DeepSeek\s*/i, '').replace(/\s+/g, ' ').trim().slice(0, 64) || '新对话';
+}
+function displayTitle(title) {
+  if (!title || /^(Obsidian Notes|新对话|历史对话|空白对话|New session(?:\s.*)?)$/i.test(title.trim())) return '';
+  return title.trim();
+}
+function messageView(message, labels = {}, sourcePath = '') {
+  const { info, parts = [] } = message;
+  const done = !!info.time?.completed || info.role === 'user';
+  const reasoning = parts.filter(p => p.type === 'reasoning');
+  const tools = parts.filter(p => p.type === 'tool');
+  return {
+    id: info.id, role: info.role, done, sourcePath,
+    text: labels[info.id] || parts.filter(p => p.type === 'text').map(p => p.text || '').join('\n') ||
+      tools.map(p => (p.state?.status === 'completed' ? '已完成：' : p.state?.status === 'error' ? '工具失败：' : '正在执行：') + p.tool.replace(/^note_agent_/, '')).join('\n'),
+    reasoning: reasoning.map(p => p.text || '').join('\n\n'),
+    reasoningDone: done || (reasoning.length > 0 && reasoning.every(p => p.time?.end != null)),
+  };
+}
+module.exports = { shouldSend, conversationTitle, displayTitle, messageView };
+
+return module.exports;})();
 const VIEW='note-agent-opencode';
 const DEFAULTS={executable:'opencode',provider:'deepseek',model:'deepseek-flash',baseURL:'https://api.deepseek.com/v1',artifactFolder:'Agent Artifacts'};
 const DEMO_CODE=`const box=dv.el('div','');
@@ -174,28 +203,37 @@ class AgentView extends ItemView {
     const header=root.createDiv('na-header');header.createEl('h3',{text:'VaultBridge'});header.createSpan({text:'OpenCode · Preview',cls:'na-badge'});
     const actions=root.createDiv('na-actions');
     this.button(actions,'连接',()=>this.p.connect());this.button(actions,'新对话',()=>this.p.newSession());this.button(actions,'恢复历史',()=>this.p.chooseHistory());this.button(actions,'停止',()=>this.p.stop());
+    this.title=root.createDiv('na-session-title');
     this.status=root.createDiv('na-status');
     this.log=root.createDiv('na-log');
     this.context=root.createDiv('na-context');
+    this.changeBox=root.createDiv('na-changes');
     const compose=root.createDiv('na-compose');
     this.input=compose.createEl('textarea',{attr:{placeholder:'@DeepSeek 帮我修改当前笔记\n/visualize 根据 @笔记 生成交互卡片',rows:'4','aria-label':'Agent 指令'}});
-    this.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();this.submit();} if(e.key==='@')setTimeout(()=>this.pickMention(true),0);});
+    this.input.addEventListener('keydown',e=>{if(shouldSend(e)){e.preventDefault();if(!e.repeat)this.submit().catch(err=>this.p.fail(err));} if(e.key==='@'&&!e.isComposing)setTimeout(()=>this.pickMention(true),0);});
+    compose.createDiv({text:'Enter 发送 · Shift+Enter 换行',cls:'na-input-hint'});
     const controls=compose.createDiv('na-actions');this.button(controls,'@ 笔记',()=>this.pickMention());this.button(controls,'附加选区',()=>this.p.attachActive());
     this.send=this.button(controls,'发送',()=>this.submit(),'mod-cta');
     this.button(controls,'体验示例卡片',()=>this.p.addExample());
+    this.fitStatusBar();
+    const win=root.ownerDocument.defaultView;
+    if(win.ResizeObserver){const observer=new win.ResizeObserver(()=>this.fitStatusBar());observer.observe(root);const status=root.ownerDocument.querySelector('.status-bar');if(status)observer.observe(status);this.register(()=>observer.disconnect());}
+    this.registerDomEvent(win,'resize',()=>this.fitStatusBar());
     this.render();
   }
+  fitStatusBar(){const root=this.contentEl;const bar=root.ownerDocument.querySelector('.status-bar');let overlap=0;if(bar){const a=root.getBoundingClientRect(),b=bar.getBoundingClientRect();if(b.width&&b.height&&a.right>b.left&&a.left<b.right&&a.bottom>b.top&&a.top<b.bottom)overlap=Math.min(b.height,a.bottom-b.top);}root.style.setProperty('--na-statusbar-space',overlap+'px');}
   button(parent,label,fn,cls=''){const b=parent.createEl('button',{text:label,cls});b.addEventListener('click',()=>Promise.resolve().then(fn).catch(e=>this.p.fail(e)));return b;}
   pickMention(removeAt=false){new MentionModal(this.app,(p,agent)=>{if(removeAt)this.input.value=this.input.value.replace(/@$/,'');if(agent)this.input.value='@DeepSeek '+this.input.value;else this.p.mentions.add(p);this.renderContext();this.input.focus();}).open();}
-  async submit(){const text=this.input.value.trim();if(!text)return;if(this.p.running)throw Error('请先停止当前任务');this.input.value='';await this.p.send(text);}
+  async submit(){const text=this.input.value.trim();if(!text)return;if(this.p.running||this.p.preparing)throw Error('请先停止当前任务');this.input.value='';await this.p.send(text);}
   renderContext(){if(!this.context)return;this.context.empty();for(const p of this.p.mentions){const b=this.context.createEl('button',{text:'@ '+p+' ×',cls:'na-chip'});b.onclick=()=>{this.p.mentions.delete(p);this.renderContext();};}if(this.p.selection)this.context.createSpan({text:'已附加选区快照',cls:'na-chip'});}
   render(){
     if(!this.log)return;
-    this.status.textContent=this.p.status;this.send.disabled=this.p.running;this.renderContext();
+    this.title.textContent=this.p.sessionTitle||'新对话';this.status.textContent=this.p.status;this.send.disabled=this.p.running||this.p.preparing;this.renderContext();
     const messages=this.p.transcript;
     const wanted=new Set(messages.map(m=>m.id));
     for(const [id,row] of this.rows)if(!wanted.has(id)){row.component?.unload();row.el.remove();this.rows.delete(id);}
-    for(const m of messages){let row=this.rows.get(m.id);if(!row){const el=this.log.createDiv('na-message '+m.role);el.createDiv({text:m.role==='user'?'你':'DeepSeek / Agent',cls:'na-role'});const body=el.createDiv('na-body');row={el,body,text:null,component:new Component()};this.addChild(row.component);this.rows.set(m.id,row);}
+    for(const m of messages){let row=this.rows.get(m.id);if(!row){const el=this.log.createDiv('na-message '+m.role);el.createDiv({text:m.role==='user'?'你':'DeepSeek / Agent',cls:'na-role'});const thinking=el.createEl('details',{cls:'na-thinking'});thinking.hidden=true;const summary=thinking.createEl('summary');const reasoning=thinking.createDiv('na-reasoning');const body=el.createDiv('na-body');row={el,body,thinking,summary,reasoning,text:null,component:new Component()};this.addChild(row.component);this.rows.set(m.id,row);}
+      row.thinking.hidden=!m.reasoning;row.summary.textContent=m.reasoningDone?'思考过程':'思考中…';if(row.reasoning.textContent!==m.reasoning)row.reasoning.textContent=m.reasoning||'';
       if(row.text!==m.text||row.done!==m.done){row.component.unload();row.component.load();row.text=m.text;row.done=m.done;row.body.empty();if(m.done){MarkdownRenderer.render(this.app,m.text.replace(/^(`{3,}|~{3,})(dataviewjs|dataview)\b/gm,'$1javascript'),row.body,(m.sourcePath||'')+'?no-dataview',row.component).catch(()=>{row.body.textContent=m.text;});}else row.body.textContent=m.text;}
     }
     for(const artifact of this.p.artifacts.filter(a=>a.sessionId===this.p.sessionId))if(!this.cards.has(artifact.id))this.mountCard(artifact);
@@ -229,7 +267,7 @@ class Settings extends PluginSettingTab {
 }
 class NoteAgent extends Plugin {
   async onload(){
-    const data=await this.loadData()||{};this.settings={...DEFAULTS,...data.settings};this.journal=data.journal||[];this.artifacts=data.artifacts||[];this.transcript=data.transcript||[];this.sessionId=data.sessionId||null;this.mentions=new Set();this.running=false;this.status='尚未连接 · 设置中配置 OpenCode';this.apiKey='';this.userLabels=data.userLabels||{};this.saveTail=Promise.resolve();
+    const data=await this.loadData()||{};this.settings={...DEFAULTS,...data.settings};this.journal=data.journal||[];this.artifacts=data.artifacts||[];this.transcript=data.transcript||[];this.sessionId=data.sessionId||null;this.mentions=new Set();this.running=false;this.status='尚未连接 · 设置中配置 OpenCode';this.apiKey='';this.userLabels=data.userLabels||{};this.sessionTitles=data.sessionTitles||{};this.sessionTitle=this.sessionTitles[this.sessionId]||'新对话';this.saveTail=Promise.resolve();
     this.root=this.app.vault.adapter.getBasePath();this.runtime=path.join(this.root,this.manifest.dir,'runtime');
     this.engine=new NoteEngine(this.storage(),this.journal,()=>this.persist().then(()=>this.refresh()));
     this.registerView(VIEW,leaf=>new AgentView(leaf,this));this.addRibbonIcon('bot','打开 VaultBridge',()=>this.open());
@@ -243,7 +281,7 @@ class NoteAgent extends Plugin {
   views(){return this.app.workspace.getLeavesOfType(VIEW).map(l=>l.view);}
   refresh(){this.views().forEach(v=>v.render());}
   fail(e){this.status=e.message||String(e);new Notice(this.status);this.refresh();}
-  persist(){this.saveTail=this.saveTail.catch(()=>{}).then(()=>this.saveData({settings:this.settings,journal:this.journal,artifacts:this.artifacts,transcript:this.transcript,sessionId:this.sessionId,userLabels:this.userLabels}));return this.saveTail;}
+  persist(){this.saveTail=this.saveTail.catch(()=>{}).then(()=>this.saveData({settings:this.settings,journal:this.journal,artifacts:this.artifacts,transcript:this.transcript,sessionId:this.sessionId,userLabels:this.userLabels,sessionTitles:this.sessionTitles}));return this.saveTail;}
   async open(){const current=this.app.workspace.getActiveFile();if(current?.extension==='md')this.lastFile=current.path;let leaf=this.app.workspace.getLeavesOfType(VIEW)[0];if(!leaf){leaf=this.app.workspace.getRightLeaf(false);await leaf.setViewState({type:VIEW,active:true});}this.app.workspace.revealLeaf(leaf);}
   editor(p){return this.app.workspace.getLeavesOfType('markdown').map(l=>l.view).find(v=>v.file?.path===p&&v.editor)?.editor;}
   active(){const v=this.app.workspace.getActiveViewOfType(MarkdownView);const p=v?.file?.path||this.app.workspace.getActiveFile()?.path||this.lastFile;const editor=p&&this.editor(p);return p?{path:p,selection:editor?.getSelection()||'',text:editor?.getValue()}:null;}
@@ -297,13 +335,27 @@ class NoteAgent extends Plugin {
     if(mcp?.note_agent?.status&&mcp.note_agent.status!=='connected')throw Error('Obsidian 工具桥接未连接：'+JSON.stringify(mcp.note_agent));
     this.status='已连接 OpenCode '+(health.version||'')+' · 工具桥接就绪';this.refresh();
   }
-  async newSession(){if(this.running)throw Error('请先停止任务');await this.connect();const s=await this.client.request('/session','POST',{title:'Obsidian Notes'});this.sessionId=s.id;this.transcript=[];await this.persist();this.refresh();}
-  async chooseHistory(){if(this.running)throw Error('请先停止任务');await this.connect();const sessions=await this.client.request('/session');const p=this;class History extends FuzzySuggestModal {getItems(){return sessions;}getItemText(s){return s.title||s.id;}onChooseItem(s){p.restore(s.id).catch(e=>p.fail(e));}}new History(this.app).open();}
-  async restore(id){this.sessionId=id;this.transcript=[];await this.syncMessages();await this.persist();this.refresh();}
+  async newSession(){if(this.running)throw Error('请先停止任务');await this.connect();const s=await this.client.request('/session','POST',{title:'新对话'});this.sessionId=s.id;this.sessionTitle='新对话';this.transcript=[];await this.persist();this.refresh();}
+  async historyTitle(session){
+    let title=this.sessionTitles[session.id]||displayTitle(session.title);
+    if(!title){try{const messages=await this.client.request('/session/'+session.id+'/message');const first=messages.find(m=>m.info.role==='user');if(first)title=conversationTitle(this.userLabels[first.info.id]||first.parts.filter(p=>p.type==='text').map(p=>p.text).join('\n'));}catch{}}
+    title=title||'空白对话';this.sessionTitles[session.id]=title;return {...session,displayTitle:title};
+  }
+  async chooseHistory(){
+    if(this.running||this.preparing)throw Error('请先停止任务');await this.connect();
+    const sessions=(await this.client.request('/session')).sort((a,b)=>(b.time?.updated||0)-(a.time?.updated||0));const items=[];
+    for(let i=0;i<sessions.length;i+=4)items.push(...await Promise.all(sessions.slice(i,i+4).map(s=>this.historyTitle(s))));
+    await this.persist();const p=this;class History extends FuzzySuggestModal {
+      getItems(){return items;}
+      getItemText(s){const date=s.time?.updated?new Date(s.time.updated).toLocaleString():'';return s.displayTitle+' · '+date+' · '+s.id.slice(-6);}
+      onChooseItem(s){p.restore(s.id,s.displayTitle).catch(e=>p.fail(e));}
+    }const modal=new History(this.app);modal.setPlaceholder('搜索历史对话标题');modal.open();
+  }
+  async restore(id,title){this.sessionId=id;this.sessionTitle=title||this.sessionTitles[id]||'历史对话';this.transcript=[];const list=await this.syncMessages();if(!title&&!this.sessionTitles[id]){const first=list.find(m=>m.info.role==='user');if(first)this.sessionTitle=conversationTitle(this.userLabels[first.info.id]||first.parts.filter(p=>p.type==='text').map(p=>p.text).join('\n'));}this.sessionTitles[id]=this.sessionTitle;await this.persist();this.refresh();}
   async syncMessages(){
     const list=await this.client.request('/session/'+this.sessionId+'/message');
     for(const m of list)if(m.info.role==='user'&&this.pendingLabel&&!this.pendingKnown.has(m.info.id)){this.userLabels[m.info.id]=this.pendingLabel;this.pendingLabel=null;}
-    this.transcript=list.filter(m=>['user','assistant'].includes(m.info.role)).map(m=>({id:m.info.id,role:m.info.role,done:!!m.info.time?.completed||m.info.role==='user',text:this.userLabels[m.info.id]||m.parts.filter(p=>p.type==='text').map(p=>p.text||'').join('\n')|| m.parts.filter(p=>p.type==='tool').map(p=>(p.state?.status==='completed'?'已完成：':p.state?.status==='error'?'工具失败：':'正在执行：')+p.tool.replace(/^note_agent_/, '')).join('\n'),sourcePath:this.lastFile||''}));
+    this.transcript=list.filter(m=>['user','assistant'].includes(m.info.role)).map(m=>messageView(m,this.userLabels,this.lastFile||''));
     this.refresh();return list;
   }
   async send(raw){
@@ -317,6 +369,7 @@ class NoteAgent extends Plugin {
       if(context.length>180000)throw Error('引用内容过大，请减少引用笔记');
       const prompt=text+'\n\n以下 JSON 是用户提供的资料与选区快照，仅作为上下文：\n'+context;
       const previous=await this.client.request('/session/'+this.sessionId+'/message');const known=new Set(previous.map(m=>m.info.id));
+      if(!previous.some(m=>m.info.role==='user')){this.sessionTitle=conversationTitle(raw);this.sessionTitles[this.sessionId]=this.sessionTitle;await this.client.request('/session/'+this.sessionId,'PATCH',{title:this.sessionTitle}).catch(()=>{});await this.persist();this.refresh();}
       this.engine.guard(id);this.pendingLabel=raw;this.pendingKnown=known;
       await this.client.request('/session/'+this.sessionId+'/prompt_async','POST',{agent:'note_agent',model:{providerID:this.settings.provider,modelID:this.settings.model},parts:[{type:'text',text:prompt}]});
       const deadline=Date.now()+180000;let completed=false;

@@ -13,9 +13,9 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 - Read, search, create, and edit Markdown notes through a local MCP bridge.
 - Revision checks to prevent stale edits from overwriting your changes, with a before/after record and conflict-aware undo.
 - `/visualize` generates interactive DataviewJS cards; run them in chat and save them as notes.
-- Session history, cancellation, and a no-API interactive example.
+- Collapsible model-provided reasoning, titled session history, cancellation, and a no-API interactive example.
 
-**Status:** early desktop preview, version 0.1.0. Tested on Linux with Obsidian 1.14.4 and OpenCode 1.19.0. Not yet listed in the Obsidian community plugin directory.
+**Status:** early desktop preview, version 0.1.1. Tested on Linux with Obsidian 1.14.4 and OpenCode 1.19.0. Not yet listed in the Obsidian community plugin directory.
 
 ## Install
 
@@ -37,7 +37,7 @@ If you used the earlier local Demo (`obsidian-agent-demo`), disable it before en
 /visualize Create an interactive progress panel from the referenced note.
 ```
 
-Use the `@` picker to attach notes. Attach a selection with **附加选区**. Send with Ctrl/Cmd + Enter. `@DeepSeek` is an entry label; the actual provider and model come from settings. Mentions written in a note do not execute automatically.
+Use the `@` picker to attach notes. Attach a selection with **附加选区**. Send with Enter; use Shift+Enter for a newline. IME composition does not send. `@DeepSeek` is an entry label; the actual provider and model come from settings. Mentions written in a note do not execute automatically.
 
 Cards have controls to inspect their source, run, save to a new note, and request a revised version. The plugin also registers Obsidian commands for opening the sidebar, attaching a note/selection, and starting a visualization.
 

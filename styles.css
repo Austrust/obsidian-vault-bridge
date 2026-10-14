@@ -1,1 +1,16 @@
 .na-root{display:flex;flex-direction:column;height:100%;padding:12px!important;gap:10px;min-width:260px}.na-header{display:flex;align-items:center;justify-content:space-between}.na-header h3{margin:0}.na-badge{font-size:10px;letter-spacing:.06em;color:var(--text-muted);background:var(--background-secondary);padding:5px;border-radius:5px}.na-actions{display:flex;gap:6px;flex-wrap:wrap}.na-actions button{font-size:12px;height:28px}.na-status{font-size:12px;color:var(--text-muted);padding:7px 9px;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)}.na-log{flex:1;overflow:auto;min-height:120px;display:flex;flex-direction:column;gap:12px}.na-message{padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}.na-message.user{background:var(--background-secondary)}.na-role{font-size:11px;color:var(--text-muted);margin-bottom:6px}.na-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}.na-body p{margin:0 0 8px}.na-compose textarea{width:100%;resize:vertical;min-height:90px;margin-bottom:8px}.na-context{display:flex;gap:4px;flex-wrap:wrap}.na-chip{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}.na-artifact{border:1px solid var(--interactive-accent);border-radius:10px;padding:12px}.na-artifact h4{margin:0 0 8px}.na-card{margin-top:12px;min-height:60px}.na-muted{color:var(--text-muted);font-size:12px}.na-artifact pre{white-space:pre-wrap;font-size:11px;max-height:180px;overflow:auto}.na-changes{max-height:160px;overflow:auto;font-size:12px}.na-changes:empty{display:none}.na-diff{display:grid;grid-template-columns:1fr 1fr;gap:4px}.na-diff pre{white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px}.na-diff pre:first-child{background:rgba(200,60,60,.08)}.na-diff pre:last-child{background:rgba(40,180,100,.08)}
+/* Keep the composer inside the leaf, above Obsidian's overlaid status bar. */
+.na-root{box-sizing:border-box;min-height:0;min-width:0;overflow:hidden;padding-bottom:calc(12px + var(--na-statusbar-space,26px))!important}
+.na-root>.na-header,.na-root>.na-actions,.na-status,.na-session-title,.na-compose,.na-context{flex-shrink:0}
+.na-log{flex:1 1 0;min-height:0;overscroll-behavior:contain}
+.na-log>.na-message,.na-log>.na-artifact{flex-shrink:0}
+.na-compose{max-height:45%;overflow-y:auto}
+.na-compose textarea{box-sizing:border-box;min-height:64px;max-height:180px;resize:vertical}
+.na-input-hint{font-size:11px;color:var(--text-muted);margin-bottom:6px}
+.na-context{max-height:64px;overflow:auto}
+.na-changes{flex:0 1 auto;max-height:20%}
+.na-session-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.na-thinking{margin-bottom:10px;color:var(--text-muted);font-size:12px}
+.na-thinking[hidden]{display:none}
+.na-thinking summary{cursor:pointer;padding:4px 0}
+.na-reasoning{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;border-left:2px solid var(--background-modifier-border);padding:8px}
