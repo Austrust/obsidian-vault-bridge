@@ -18,7 +18,7 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 - Codex-inspired conversation layout with a compact composer, theme-aware colors, and grouped execution records.
 - Collapsible model-provided reasoning, titled session history, cancellation, and a no-API interactive example.
 
-**Status:** early desktop preview, version 0.2.0. Backend tested on Linux with OpenCode 1.19.0; the new UI was checked in a browser fixture. Earlier versions were tested in Obsidian 1.14.4. Not yet listed in the Obsidian community plugin directory.
+**Status:** early desktop preview, version 0.2.1. Backend tested on Linux with OpenCode 1.19.0; the new UI was checked in a browser fixture. Earlier versions were tested in Obsidian 1.14.4. Not yet listed in the Obsidian community plugin directory.
 
 ## Install
 
@@ -27,11 +27,13 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 3. Reload Obsidian and enable **VaultBridge** in Community plugins.
 4. For interactive cards, install [Dataview](https://github.com/blacksmithgu/obsidian-dataview) and enable **JavaScript Queries**.
 5. In VaultBridge settings, enter the absolute path to your OpenCode executable, provider, model, and API base URL. Defaults are `deepseek`, `deepseek-flash`, and `https://api.deepseek.com/v1`.
-6. Enter your API key for the current Obsidian session, or reuse credentials configured through OpenCode. Click **连接** (Connect), then open the robot icon in the ribbon.
+6. Enter your API key for the current Obsidian session, or reuse credentials configured through OpenCode. Open the robot icon in the ribbon; the sidebar connects automatically. Disable **自动连接** in settings to connect manually.
 
 The UI currently uses Chinese labels. Click **更多选项** → **体验交互卡片** → **运行** to try a card without an API key.
 
 If you used the earlier local Demo (`obsidian-agent-demo`), disable it before enabling VaultBridge. This first public version uses a new plugin ID and does not automatically migrate old settings or chat history.
+
+Opening or restoring the sidebar starts the local service without sending a model request. Manually disconnecting pauses automatic connection until you reconnect or reload the plugin.
 
 ## Use
 

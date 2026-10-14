@@ -14,7 +14,7 @@ class NoteAgent extends Plugin {
   async onload(){
     this.store=new WorkspaceStore(await this.loadData(),DEFAULTS,data=>this.saveData(data));
     for(const key of Object.keys(this.store.state))Object.defineProperty(this,key,{get:()=>this.store.state[key],set:value=>this.store.state[key]=value});
-    this.mentions=new Set();this.apiKey='';
+    this.mentions=new Set();this.apiKey='';this.autoConnectPaused=false;this.unloading=false;
     this.root=this.app.vault.adapter.getBasePath();this.runtimeDir=path.join(this.root,this.manifest.dir,'runtime');
     this.engine=new NoteEngine(this.storage(),this.journal,()=>this.persist().then(()=>this.refresh()));
     this.tools=new NoteTools({engine:this.engine,files:()=>this.app.vault.getMarkdownFiles(),read:p=>this.storage().read(p),active:()=>this.active(),publish:args=>this.publishArtifact(args)});
@@ -59,7 +59,8 @@ class NoteAgent extends Plugin {
     return {notes,selection:this.selection||null,artifacts};
   }
   get client(){return this.backend.client;}
-  connect(){return this.backend.connect();}
+  async connect(){this.autoConnectPaused=false;const client=await this.backend.connect();this.error='';this.refresh();return client;}
+  async autoConnect(){if(this.settings.autoConnect===false||this.autoConnectPaused||this.unloading)return;try{await this.connect();}catch(error){if(!this.unloading&&!this.autoConnectPaused)this.fail(error);}}
   newSession(){return this.conversations.newSession();}
   restore(id,title){return this.conversations.restore(id,title);}
   send(raw){return this.conversations.send(raw);}
@@ -73,7 +74,7 @@ class NoteAgent extends Plugin {
     }
     const modal=new History(this.app);modal.setPlaceholder('搜索对话');modal.open();
   }
-  async disconnect(){await this.conversations.stop();await this.backend.disconnect();}
-  onunload(){if(this.conversations?.turn)this.conversations.turn.cancelled=true;this.engine?.stop();this.backend?.disconnect();}
+  async disconnect(){this.autoConnectPaused=true;try{await this.conversations.stop();}finally{await this.backend.disconnect();}}
+  onunload(){this.unloading=true;if(this.conversations?.turn)this.conversations.turn.cancelled=true;this.engine?.stop();this.backend?.disconnect();}
 }
 module.exports=NoteAgent;

@@ -17,7 +17,7 @@ class NoteAgent extends Plugin {
   async onload(){
     this.store=new WorkspaceStore(await this.loadData(),DEFAULTS,data=>this.saveData(data));
     for(const key of Object.keys(this.store.state))Object.defineProperty(this,key,{get:()=>this.store.state[key],set:value=>this.store.state[key]=value});
-    this.mentions=new Set();this.apiKey='';
+    this.mentions=new Set();this.apiKey='';this.autoConnectPaused=false;this.unloading=false;
     this.root=this.app.vault.adapter.getBasePath();this.runtimeDir=path.join(this.root,this.manifest.dir,'runtime');
     this.engine=new NoteEngine(this.storage(),this.journal,()=>this.persist().then(()=>this.refresh()));
     this.tools=new NoteTools({engine:this.engine,files:()=>this.app.vault.getMarkdownFiles(),read:p=>this.storage().read(p),active:()=>this.active(),publish:args=>this.publishArtifact(args)});
@@ -62,7 +62,8 @@ class NoteAgent extends Plugin {
     return {notes,selection:this.selection||null,artifacts};
   }
   get client(){return this.backend.client;}
-  connect(){return this.backend.connect();}
+  async connect(){this.autoConnectPaused=false;const client=await this.backend.connect();this.error='';this.refresh();return client;}
+  async autoConnect(){if(this.settings.autoConnect===false||this.autoConnectPaused||this.unloading)return;try{await this.connect();}catch(error){if(!this.unloading&&!this.autoConnectPaused)this.fail(error);}}
   newSession(){return this.conversations.newSession();}
   restore(id,title){return this.conversations.restore(id,title);}
   send(raw){return this.conversations.send(raw);}
@@ -76,8 +77,8 @@ class NoteAgent extends Plugin {
     }
     const modal=new History(this.app);modal.setPlaceholder('搜索对话');modal.open();
   }
-  async disconnect(){await this.conversations.stop();await this.backend.disconnect();}
-  onunload(){if(this.conversations?.turn)this.conversations.turn.cancelled=true;this.engine?.stop();this.backend?.disconnect();}
+  async disconnect(){this.autoConnectPaused=true;try{await this.conversations.stop();}finally{await this.backend.disconnect();}}
+  onunload(){this.unloading=true;if(this.conversations?.turn)this.conversations.turn.cancelled=true;this.engine?.stop();this.backend?.disconnect();}
 }
 module.exports=NoteAgent;
 
@@ -199,6 +200,7 @@ class AgentView extends ItemView {
     this.registerDomEvent(win,'resize',()=>this.fitStatusBar());
     this.registerDomEvent(root.ownerDocument,'selectionchange',()=>{if(root.ownerDocument.getSelection()?.isCollapsed)this.render();});
     this.render();
+    void this.p.autoConnect();
   }
   button(parent,label,fn,cls=''){const b=parent.createEl('button',{text:label,cls});b.addEventListener('click',event=>Promise.resolve().then(()=>fn(event)).catch(e=>this.p.fail(e)));return b;}
   iconButton(parent,label,icon,fn,cls=''){const b=this.button(parent,'',fn,'vb-icon-button '+cls);b.setAttribute('aria-label',label);b.setAttribute('title',label);setIcon(b,icon);return b;}
@@ -336,6 +338,7 @@ class Settings extends PluginSettingTab {
   display(){const c=this.containerEl;c.empty();c.createEl('h2',{text:'VaultBridge · OpenCode'});
     c.createEl('p',{text:'使用独立 OpenCode 服务。安装 OpenCode 后填写可执行文件路径；API Key 只保留在本次 Obsidian 进程内，也可复用 OpenCode 已配置的凭据。修改设置后先断开再连接。'});
     for(const [key,label] of [['executable','OpenCode 可执行文件'],['provider','供应商 ID'],['model','模型 ID'],['baseURL','API Base URL'],['artifactFolder','成果保存目录']])new Setting(c).setName(label).addText(t=>t.setValue(this.p.settings[key]).onChange(async v=>{this.p.settings[key]=v.trim();await this.p.persist();}));
+    new Setting(c).setName('自动连接').setDesc('打开侧栏或恢复侧栏时自动启动本地 OpenCode；不会自动发送消息。').addToggle(t=>t.setValue(this.p.settings.autoConnect!==false).onChange(async value=>{this.p.settings.autoConnect=value;await this.p.persist();if(value){this.p.autoConnectPaused=false;await this.p.autoConnect();}}));
     new Setting(c).setName('API Key（本次运行）').addText(t=>{t.inputEl.type='password';t.setValue(this.p.apiKey||'').onChange(v=>this.p.apiKey=v.trim());});
     new Setting(c).setName('服务').addButton(b=>b.setButtonText('连接').onClick(()=>this.p.connect().catch(e=>this.p.fail(e)))).addButton(b=>b.setButtonText('断开').onClick(()=>this.p.disconnect().catch(e=>this.p.fail(e))));
   }
@@ -354,7 +357,7 @@ module.exports={DEMO_CODE};
 
 },
 function(module,exports,__load,require){
-const DEFAULTS={executable:'opencode',provider:'deepseek',model:'deepseek-flash',baseURL:'https://api.deepseek.com/v1',artifactFolder:'Agent Artifacts'};
+const DEFAULTS={autoConnect:true,executable:'opencode',provider:'deepseek',model:'deepseek-flash',baseURL:'https://api.deepseek.com/v1',artifactFolder:'Agent Artifacts'};
 module.exports={DEFAULTS};
 
 },

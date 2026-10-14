@@ -38,6 +38,7 @@ class AgentView extends ItemView {
     this.registerDomEvent(win,'resize',()=>this.fitStatusBar());
     this.registerDomEvent(root.ownerDocument,'selectionchange',()=>{if(root.ownerDocument.getSelection()?.isCollapsed)this.render();});
     this.render();
+    void this.p.autoConnect();
   }
   button(parent,label,fn,cls=''){const b=parent.createEl('button',{text:label,cls});b.addEventListener('click',event=>Promise.resolve().then(()=>fn(event)).catch(e=>this.p.fail(e)));return b;}
   iconButton(parent,label,icon,fn,cls=''){const b=this.button(parent,'',fn,'vb-icon-button '+cls);b.setAttribute('aria-label',label);b.setAttribute('title',label);setIcon(b,icon);return b;}
