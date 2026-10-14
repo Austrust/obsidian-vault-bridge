@@ -15,10 +15,10 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 - `/visualize` generates interactive DataviewJS cards; run them in chat and save them as notes.
 - Selectable chat text and per-message Markdown copy controls.
 - Rendered Markdown with scrollable tables and preserved code indentation.
-- Separate, collapsed tool-call progress and clearly labeled final answers.
+- Codex-inspired conversation layout with a compact composer, theme-aware colors, and grouped execution records.
 - Collapsible model-provided reasoning, titled session history, cancellation, and a no-API interactive example.
 
-**Status:** early desktop preview, version 0.1.2. Tested on Linux with Obsidian 1.14.4 and OpenCode 1.19.0. Not yet listed in the Obsidian community plugin directory.
+**Status:** early desktop preview, version 0.2.0. Backend tested on Linux with OpenCode 1.19.0; the new UI was checked in a browser fixture. Earlier versions were tested in Obsidian 1.14.4. Not yet listed in the Obsidian community plugin directory.
 
 ## Install
 
@@ -29,7 +29,7 @@ Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plu
 5. In VaultBridge settings, enter the absolute path to your OpenCode executable, provider, model, and API base URL. Defaults are `deepseek`, `deepseek-flash`, and `https://api.deepseek.com/v1`.
 6. Enter your API key for the current Obsidian session, or reuse credentials configured through OpenCode. Click **连接** (Connect), then open the robot icon in the ribbon.
 
-The UI currently uses Chinese labels. Click **体验示例卡片** → **运行卡片** to try a card without an API key.
+The UI currently uses Chinese labels. Click **更多选项** → **体验交互卡片** → **运行** to try a card without an API key.
 
 If you used the earlier local Demo (`obsidian-agent-demo`), disable it before enabling VaultBridge. This first public version uses a new plugin ID and does not automatically migrate old settings or chat history.
 
@@ -40,7 +40,7 @@ If you used the earlier local Demo (`obsidian-agent-demo`), disable it before en
 /visualize Create an interactive progress panel from the referenced note.
 ```
 
-Use the `@` picker to attach notes. Attach a selection with **附加选区**. Send with Enter; use Shift+Enter for a newline. IME composition does not send. `@DeepSeek` is an entry label; the actual provider and model come from settings. Mentions written in a note do not execute automatically.
+Use the `@` picker to attach notes. Attach a selection with the paperclip button (**附加当前笔记或选区**). Send with Enter; use Shift+Enter for a newline. IME composition does not send. `@DeepSeek` is an entry label; the actual provider and model come from settings. Mentions written in a note do not execute automatically.
 
 Cards have controls to inspect their source, run, save to a new note, and request a revised version. The plugin also registers Obsidian commands for opening the sidebar, attaching a note/selection, and starting a visualization.
 
@@ -67,11 +67,11 @@ No third-party npm packages are required to build or run the unit tests. Node.js
 ```sh
 node build.cjs
 node --check main.js
-node --test tests/core.test.js
+node --test tests/*.test.js
 OPENCODE_BIN=/absolute/path/to/opencode node tests/integration.cjs
 ```
 
-`src/plugin.js` contains the UI and Obsidian adapter. `core.js` contains revision checks, undo, the MCP bridge, and the OpenCode client. `build.cjs` produces the committed standalone `main.js`.
+`src/ui/` owns the interface; `src/backend/` owns process lifecycle, conversations, and tools; `src/domain/` owns note edits and persisted state. `src/plugin.js` wires them to Obsidian. `core.js` remains a compatibility export. `build.cjs` bundles local modules into the standalone `main.js`. See [architecture and extension points](ARCHITECTURE.md).
 
 The integration test uses real OpenCode with a local scripted model server. It does not contact a paid model API. Real DeepSeek Flash tool calling was also checked separately against a virtual test note.
 

@@ -1,46 +1,45 @@
-.na-root{display:flex;flex-direction:column;height:100%;padding:12px!important;gap:10px;min-width:260px}.na-header{display:flex;align-items:center;justify-content:space-between}.na-header h3{margin:0}.na-badge{font-size:10px;letter-spacing:.06em;color:var(--text-muted);background:var(--background-secondary);padding:5px;border-radius:5px}.na-actions{display:flex;gap:6px;flex-wrap:wrap}.na-actions button{font-size:12px;height:28px}.na-status{font-size:12px;color:var(--text-muted);padding:7px 9px;border-left:3px solid var(--interactive-accent);background:var(--background-secondary)}.na-log{flex:1;overflow:auto;min-height:120px;display:flex;flex-direction:column;gap:12px}.na-message{padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px}.na-message.user{background:var(--background-secondary)}.na-role{font-size:11px;color:var(--text-muted);margin-bottom:6px}.na-body{white-space:normal;overflow-wrap:anywhere;font-size:14px;min-width:0}.na-body p{margin:0 0 8px}.na-compose textarea{width:100%;resize:vertical;min-height:90px;margin-bottom:8px}.na-context{display:flex;gap:4px;flex-wrap:wrap}.na-chip{font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}.na-artifact{border:1px solid var(--interactive-accent);border-radius:10px;padding:12px}.na-artifact h4{margin:0 0 8px}.na-card{margin-top:12px;min-height:60px}.na-muted{color:var(--text-muted);font-size:12px}.na-artifact pre{white-space:pre-wrap;font-size:11px;max-height:180px;overflow:auto}.na-changes{max-height:160px;overflow:auto;font-size:12px}.na-changes:empty{display:none}.na-diff{display:grid;grid-template-columns:1fr 1fr;gap:4px}.na-diff pre{white-space:pre-wrap;max-height:160px;overflow:auto;font-size:11px}.na-diff pre:first-child{background:rgba(200,60,60,.08)}.na-diff pre:last-child{background:rgba(40,180,100,.08)}
-/* Keep the composer inside the leaf, above Obsidian's overlaid status bar. */
-.na-root{box-sizing:border-box;min-height:0;min-width:0;overflow:hidden;padding-bottom:calc(12px + var(--na-statusbar-space,26px))!important}
-.na-root>.na-header,.na-root>.na-actions,.na-status,.na-session-title,.na-compose,.na-context{flex-shrink:0}
-.na-log{flex:1 1 0;min-height:0;overscroll-behavior:contain}
-.na-log>.na-message,.na-log>.na-artifact{flex-shrink:0}
-.na-compose{max-height:45%;overflow-y:auto}
-.na-compose textarea{box-sizing:border-box;min-height:64px;max-height:180px;resize:vertical}
-.na-input-hint{font-size:11px;color:var(--text-muted);margin-bottom:6px}
-.na-context{max-height:64px;overflow:auto}
-.na-changes{flex:0 1 auto;max-height:20%}
-.na-session-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.na-thinking{margin-bottom:10px;color:var(--text-muted);font-size:12px}
-.na-thinking[hidden]{display:none}
-.na-thinking summary{cursor:pointer;padding:4px 0}
-.na-reasoning{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;border-left:2px solid var(--background-modifier-border);padding:8px}
-
-/* Obsidian disables selection in many non-editor panes; chat content is selectable. */
-.na-message,.na-body,.na-body *,.na-reasoning,.na-tool-list{user-select:text;-webkit-user-select:text}
-.na-message-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.na-message-header .na-role{margin:0}
-.na-copy{font-size:11px;height:25px;flex-shrink:0}
-.na-plain{white-space:pre-wrap}
-.na-markdown{white-space:normal;line-height:1.55;font-size:14px;padding:0;margin:0}
-.na-markdown>:first-child{margin-top:0}
-.na-markdown>:last-child{margin-bottom:0}
-.na-markdown p{margin-block:0 0.65em}
-.na-markdown :is(ul,ol){margin-block:0.5em;padding-inline-start:1.6em}
-.na-markdown li>p{margin-block:0.25em}
-.na-markdown :is(h1,h2,h3,h4,h5,h6){margin-block:1em 0.5em;line-height:1.3}
-.na-markdown h1{font-size:1.4em}.na-markdown h2{font-size:1.25em}.na-markdown h3{font-size:1.1em}
-.na-markdown pre{white-space:pre;overflow-x:auto;max-width:100%;padding:10px}
-.na-markdown pre code{white-space:pre;overflow-wrap:normal;word-break:normal}
-.na-markdown blockquote{margin-inline:0;padding-inline-start:12px;border-left:3px solid var(--background-modifier-border)}
-.na-table-scroll{overflow-x:auto;max-width:100%;margin-block:0.65em}
-.na-markdown table{border-collapse:collapse;border-spacing:0;width:max-content;min-width:100%;margin:0}
-.na-markdown :is(td,th){border:1px solid var(--background-modifier-border);padding:6px 10px;white-space:normal;min-width:80px;max-width:28rem;vertical-align:top}
-.na-markdown th{background:var(--background-secondary);font-weight:600}
-.na-progress{font-size:12px;color:var(--text-muted);margin-top:8px}
-.na-progress[hidden]{display:none}
-.na-progress summary{cursor:pointer;padding:4px 0}
-.na-progress-body{border-left:2px solid var(--background-modifier-border);padding:6px 10px}
-.na-tool-list{white-space:pre-wrap;margin-bottom:6px}
-.na-intermediate{background:var(--background-secondary);border-style:dashed}
-.na-intermediate .na-body{font-size:12px}
-.na-intermediate .na-markdown{font-size:12px}
+/* VaultBridge — a quiet, native agent workspace. Colors follow the Obsidian theme. */
+.vb-workspace{--vb-bg:var(--background-primary,#fff);--vb-raised:var(--background-secondary,#f5f5f5);--vb-line:var(--background-modifier-border,#e6e6e6);--vb-text:var(--text-normal,#262626);--vb-muted:var(--text-muted,#777);--vb-faint:var(--text-faint,#999);--vb-ink:var(--text-normal,#222);--vb-on-ink:var(--background-primary,#fff);display:flex;flex-direction:column;box-sizing:border-box;height:100%;min-height:0;min-width:0;overflow:hidden;padding:0 14px calc(10px + var(--na-statusbar-space,26px))!important;background:var(--vb-bg);color:var(--vb-text);font-family:var(--font-interface);font-size:13px;line-height:1.5;position:relative}
+.vb-workspace [hidden]{display:none!important}
+.vb-header{height:54px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+.vb-brand{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650;letter-spacing:-.2px;white-space:nowrap}
+.vb-brand-mark{display:flex;align-items:center}.vb-brand-mark svg{width:17px;height:17px;stroke-width:1.7}
+.vb-header-actions,.vb-compose-actions{display:flex;align-items:center;gap:2px}
+.vb-workspace button{font-family:inherit;cursor:pointer;box-shadow:none;transition:background .12s,color .12s}
+.vb-workspace button:focus-visible,.vb-workspace summary:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px}
+.vb-workspace .vb-icon-button{display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;padding:6px;border:0;border-radius:7px;background:transparent;color:var(--vb-muted);flex-shrink:0}
+.vb-icon-button svg{width:16px;height:16px;stroke-width:1.6}.vb-workspace .vb-icon-button:hover{background:var(--vb-raised);color:var(--vb-text)}
+.vb-workspace .vb-connection{border:0;background:transparent;font-size:10px;color:var(--vb-muted);padding:4px 6px;height:26px;display:flex;align-items:center;gap:5px}
+.vb-connection:before{content:'';width:5px;height:5px;border-radius:50%;background:var(--vb-faint)}.vb-connection[data-state=connected]:before{background:#4a9b73}.vb-connection[data-state=connecting]:before{animation:vb-pulse 1.4s infinite}.vb-connection[data-state=error]:before{background:var(--text-error,#c44)}
+.vb-session-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 12px;border-bottom:1px solid var(--vb-line);flex-shrink:0}
+.na-session-title{font-size:12px;font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--vb-muted)}
+.vb-status{font-size:10px;color:var(--vb-faint);white-space:nowrap}.vb-status.is-busy{animation:vb-pulse 1.5s infinite}
+.vb-error{padding:10px 12px;margin-top:10px;border:1px solid var(--background-modifier-error,#efbbbb);background:var(--background-modifier-error-hover,#fff3f3);color:var(--text-error,#ad3737);font-size:12px;border-radius:9px;flex-shrink:0;max-height:100px;overflow:auto;user-select:text}
+.na-log{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:18px;padding:22px 2px 20px;scrollbar-width:thin;overscroll-behavior:contain}
+.na-log>*{flex-shrink:0;min-width:0}
+.vb-welcome{margin:auto 0;padding:32px 6px 46px}.vb-welcome-icon{width:34px;height:34px;display:flex;align-items:center;color:var(--vb-text);margin-bottom:18px}.vb-welcome-icon svg{width:28px;height:28px;stroke-width:1.25}
+.vb-welcome h2{font-size:22px;font-weight:550;letter-spacing:-.7px;margin:0 0 9px;color:var(--vb-text)}.vb-welcome p{margin:0;color:var(--vb-muted);font-size:13px;line-height:1.8;max-width:280px}
+.vb-suggestions{display:flex;flex-direction:column;gap:7px;margin-top:26px}.vb-workspace .vb-suggestion{display:flex;align-items:center;gap:10px;text-align:left;background:transparent;border:1px solid var(--vb-line);border-radius:10px;padding:11px 12px;height:auto;font-size:12px;color:var(--vb-text)}.vb-suggestion>span{display:flex;align-items:center}.vb-suggestion svg{width:15px;height:15px;color:var(--vb-muted);stroke-width:1.5}.vb-suggestion-arrow{margin-left:auto;opacity:.5}.vb-workspace .vb-suggestion:hover{background:var(--vb-raised)}
+.na-message{min-width:0;border:0;padding:0;background:transparent;user-select:text;-webkit-user-select:text}
+.na-message.user{align-self:flex-end;max-width:94%;padding:11px 14px;background:var(--vb-raised);border:1px solid transparent;border-radius:16px 16px 4px 16px}
+.na-message-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 7px;min-height:20px}
+.na-role{font-size:11px;color:var(--vb-muted);font-weight:500}.na-message.user .na-message-header{margin-bottom:3px}.na-message.user .na-role{font-size:10px;color:var(--vb-faint)}
+.vb-workspace .vb-copy{width:23px;height:23px;padding:5px;opacity:.45}.vb-copy svg{width:13px;height:13px}.na-message:hover .vb-copy,.vb-copy:focus-visible{opacity:1}
+.na-body{white-space:normal;overflow-wrap:anywhere;min-width:0;font-size:13px;user-select:text;-webkit-user-select:text}.na-body *,.na-reasoning,.vb-preamble,.vb-tool-details{user-select:text;-webkit-user-select:text}
+.na-plain{white-space:pre-wrap;line-height:1.7}.na-markdown{white-space:normal;line-height:1.75;font-size:13px;padding:0;margin:0}.na-markdown>:first-child{margin-top:0}.na-markdown>:last-child{margin-bottom:0}.na-markdown p{margin-block:0 0.75em}.na-markdown :is(ul,ol){margin-block:.5em;padding-inline-start:1.6em}.na-markdown li>p{margin-block:.25em}.na-markdown :is(h1,h2,h3,h4,h5,h6){margin-block:1.1em .5em;line-height:1.4;font-weight:600}.na-markdown h1{font-size:1.35em}.na-markdown h2{font-size:1.2em}.na-markdown h3{font-size:1.05em}.na-markdown pre{white-space:pre;overflow-x:auto;max-width:100%;padding:12px;border:1px solid var(--vb-line);border-radius:9px;background:var(--vb-raised);font-size:12px}.na-markdown pre code{white-space:pre;overflow-wrap:normal;word-break:normal}.na-markdown blockquote{margin-inline:0;padding-inline-start:12px;border-left:2px solid var(--vb-line);color:var(--vb-muted)}
+.na-table-scroll{overflow-x:auto;max-width:100%;margin-block:.75em;border-radius:6px}.na-markdown table{border-collapse:collapse;border-spacing:0;width:max-content;min-width:100%;margin:0;font-size:12px}.na-markdown :is(td,th){border:1px solid var(--vb-line);padding:7px 10px;white-space:normal;min-width:70px;max-width:28rem;vertical-align:top}.na-markdown th{background:var(--vb-raised);font-weight:500}
+.vb-work{border:0;border-radius:8px;color:var(--vb-muted);font-size:12px}.vb-work-summary{display:flex;align-items:center;gap:7px;cursor:pointer;list-style:none;padding:3px 0}.vb-work-summary::-webkit-details-marker{display:none}.vb-work-mark,.vb-work-chevron{display:inline-flex}.vb-work-mark svg{width:14px;height:14px;stroke-width:1.5}.vb-work-chevron svg{width:12px;height:12px;opacity:.6;transition:transform .15s}.vb-work[open]>.vb-work-summary .vb-work-chevron{transform:rotate(180deg)}.vb-work.is-active .vb-work-mark{animation:vb-pulse 1.2s infinite}
+.vb-work-content{margin:9px 0 0 6px;padding:1px 0 1px 13px;border-left:1px solid var(--vb-line)}
+.na-thinking{font-size:12px;margin:0 0 8px}.na-thinking summary{cursor:pointer;padding:5px 0;color:var(--vb-muted)}.na-reasoning{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;font-size:12px;max-height:260px;overflow:auto;padding:6px 0;color:var(--vb-muted)}.vb-preamble{white-space:pre-wrap;line-height:1.7;font-size:12px;margin:8px 0}
+.vb-tools{display:flex;flex-direction:column;gap:5px}.vb-tool{border:1px solid var(--vb-line);border-radius:8px;overflow:hidden;background:var(--vb-bg)}.vb-tool>summary{list-style:none;display:flex;align-items:center;gap:8px;padding:9px 10px;cursor:pointer}.vb-tool>summary::-webkit-details-marker{display:none}.vb-tool-icon{display:flex;flex-shrink:0}.vb-tool-icon svg{width:13px;height:13px}.vb-tool-names{min-width:0;display:flex;flex-direction:column;gap:2px}.vb-tool-label{font-size:11px;color:var(--vb-text)}.vb-tool-path{font-size:10px;color:var(--vb-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px;font-family:var(--font-monospace,monospace)}.vb-tool-state{margin-left:auto;flex-shrink:0;font-size:10px;color:var(--vb-faint)}.vb-tool[data-state=error] .vb-tool-state{color:var(--text-error,#c44)}.vb-tool-details{white-space:pre-wrap;font-family:var(--font-monospace,monospace);font-size:10px;max-height:180px;overflow:auto;border-top:1px solid var(--vb-line);padding:10px;overflow-wrap:anywhere}
+.vb-workspace .vb-jump{position:absolute;right:25px;bottom:220px;border:1px solid var(--vb-line);background:var(--vb-bg);box-shadow:0 2px 8px #0001;border-radius:14px;font-size:11px;padding:4px 10px;height:27px;z-index:2}
+.vb-composer{flex-shrink:0;border:1px solid var(--vb-line);border-radius:16px;background:var(--vb-bg);padding:10px 11px 9px;box-shadow:0 2px 8px #00000004;transition:border-color .15s}.vb-composer:focus-within{border-color:var(--text-faint,#aaa);box-shadow:0 2px 10px #00000008}
+.vb-composer textarea{display:block;width:100%;min-height:60px;max-height:160px;resize:none;border:0!important;box-shadow:none!important;background:transparent!important;color:var(--vb-text);outline:none;padding:5px 2px 9px;font-family:inherit;font-size:13px;line-height:1.7;border-radius:0;box-sizing:border-box}.vb-composer textarea::placeholder{color:var(--vb-faint)}
+.vb-composer-footer{display:flex;align-items:center;gap:5px}.vb-workspace .vb-model{font-size:10px;color:var(--vb-muted);background:transparent;border:0;box-shadow:none;padding:4px 3px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;max-width:130px;height:28px}.vb-workspace .vb-send{width:29px;height:29px;border-radius:50%;background:var(--vb-ink);color:var(--vb-on-ink);margin-left:4px}.vb-workspace .vb-send:hover{background:var(--vb-ink);opacity:.8;color:var(--vb-on-ink)}.vb-workspace .vb-send:disabled{background:var(--vb-raised);color:var(--vb-faint);cursor:default}.vb-send svg{width:16px;height:16px;stroke-width:1.8}
+.vb-composer-hint{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px 0;color:var(--vb-faint);font-size:9px;white-space:nowrap}
+.na-context{display:flex;flex-wrap:wrap;gap:5px;max-height:72px;overflow:auto}.na-context:empty{display:none}.vb-workspace .vb-context-chip{display:flex;align-items:center;gap:5px;background:var(--vb-raised);border:1px solid var(--vb-line);border-radius:6px;padding:3px 5px;font-size:10px;max-width:100%;height:24px}.vb-context-chip span{display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vb-context-chip svg{width:11px;height:11px;flex-shrink:0;color:var(--vb-muted)}.vb-selection-chip{font-size:10px;color:var(--vb-muted);padding:3px}
+.na-changes{flex:0 1 auto;max-height:20%;overflow:auto;font-size:11px}.na-changes:empty{display:none}.vb-change-group{padding:8px 2px}.vb-change-group>summary{cursor:pointer;color:var(--vb-muted)}.vb-change{padding:7px 0}.vb-change summary{cursor:pointer;font-size:11px}.na-diff{display:grid;grid-template-columns:1fr 1fr;gap:5px}.na-diff pre{white-space:pre-wrap;max-height:150px;overflow:auto;font-size:10px;user-select:text}.na-diff pre:first-child{background:#d944440d}.na-diff pre:last-child{background:#2697630d}.vb-workspace .vb-text-button{font-size:11px;height:25px;border:1px solid var(--vb-line);border-radius:6px;background:var(--vb-bg)}
+.na-artifact{border:1px solid var(--vb-line);border-radius:12px;padding:14px;background:var(--vb-bg)}.na-artifact h4{font-size:13px;font-weight:550;margin:0 0 10px}.na-actions{display:flex;gap:6px;flex-wrap:wrap}.na-actions button{font-size:11px;height:27px;background:var(--vb-bg);border:1px solid var(--vb-line);border-radius:6px}.na-card{margin-top:12px;min-height:35px;font-size:12px}.na-muted{font-size:11px;color:var(--vb-muted);line-height:1.7}.na-artifact details{margin-top:10px;font-size:10px;color:var(--vb-muted)}.na-artifact pre{white-space:pre-wrap;max-height:180px;overflow:auto;font-size:10px;user-select:text}
+@keyframes vb-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media(prefers-reduced-motion:reduce){.vb-workspace *{animation:none!important;transition:none!important}}
+@media(max-height:550px){.vb-welcome{padding:10px 4px}.vb-welcome h2{font-size:18px}.vb-suggestions{margin-top:14px}.vb-composer textarea{max-height:90px}.vb-composer-hint{font-size:8px}}

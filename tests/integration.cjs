@@ -1,9 +1,10 @@
-const {spawn}=require('node:child_process');const http=require('node:http');const fs=require('node:fs/promises');const path=require('node:path');const assert=require('node:assert/strict');
-const {NoteEngine,startBridge,OpenCodeClient,agentConfig}=require('../core');
+const http=require('node:http');const fs=require('node:fs/promises');const path=require('node:path');const assert=require('node:assert/strict');
+const {NoteEngine}=require('../src/domain/note-engine');const {OpenCodeRuntime}=require('../src/backend/opencode-runtime');const {ConversationService}=require('../src/backend/conversation-service');const {WorkspaceStore}=require('../src/domain/workspace-store');
 (async()=>{
-const root=await fs.mkdtemp(path.join(require('node:os').tmpdir(),'note-agent-integration-'));await fs.mkdir(root,{recursive:true});const notes=new Map([['测试.md','目标：旧内容']]);const artifacts=[];const journal=[];const calls=[];
-const engine=new NoteEngine({read:async p=>notes.get(p),compareWrite:async(p,b,a,g)=>{g();assert.equal(notes.get(p),b);notes.set(p,a);},create:async(p,t,g)=>{g();assert(!notes.has(p));notes.set(p,t);}},journal);engine.start('run');
-const bridge=await startBridge(async(n,a)=>{calls.push(n);if(n==='read_note')return engine.read(a.path);if(n==='patch_note')return engine.patch(a.path,a.revision,a.oldText,a.newText,'run');if(n==='publish_visualization'){artifacts.push(a);return {artifactId:'test'};}if(n==='create_note')return engine.create(a.path,a.text,'run');return {};});
+const root=await fs.mkdtemp(path.join(require('node:os').tmpdir(),'vaultbridge-integration-'));
+const notes=new Map([['测试.md','目标：旧内容']]);const artifacts=[],journal=[],calls=[];
+const engine=new NoteEngine({read:async p=>notes.get(p),compareWrite:async(p,b,a,g)=>{g();assert.equal(notes.get(p),b);notes.set(p,a);},create:async(p,t,g)=>{g();assert(!notes.has(p));notes.set(p,t);}},journal);
+const execute=async(n,a)=>{calls.push(n);if(n==='read_note')return engine.read(a.path);if(n==='patch_note')return engine.patch(a.path,a.revision,a.oldText,a.newText,engine.runID);if(n==='publish_visualization'){artifacts.push(a);return {artifactId:'test'};}if(n==='create_note')return engine.create(a.path,a.text,engine.runID);return {};};
 let modelStep=0;let revision='';
 const provider=http.createServer(async(req,res)=>{try{let b='';for await(const c of req)b+=c;const body=JSON.parse(b);await fs.writeFile(path.join(root,'last-request.json'),JSON.stringify(body,null,2));
 const available=(body.tools||[]).map(t=>t.function.name);let name,args;modelStep++;console.log('MODEL_STEP',modelStep,'TOOLS',available.join(','));
@@ -17,14 +18,17 @@ if(name){emit({role:'assistant',tool_calls:[{index:0,id:'call_'+modelStep,type:'
 else{emit({role:'assistant',reasoning_content:'已检查工具结果，准备汇总。'});emit({role:'assistant',content:'已修改笔记并发布卡片。'});emit({},'stop');}
 res.end('data: [DONE]\n\n');}catch(e){console.error(e);res.writeHead(500);res.end(String(e));}});
 await new Promise(r=>provider.listen(0,'127.0.0.1',r));const providerURL=`http://127.0.0.1:${provider.address().port}/v1`;
-const port=await new Promise(r=>{const s=http.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>r(p));});});const config={provider:{demo:{npm:'@ai-sdk/openai-compatible',options:{baseURL:providerURL,apiKey:'local-test'},models:{'demo-model':{name:'Demo',limit:{context:64000,output:4096}}}}},agent:{note_agent:agentConfig},default_agent:'note_agent',permission:{'*':'deny','note_agent_*':'allow'},share:'disabled'};
-const proc=spawn(process.env.OPENCODE_BIN||'opencode',['serve','--hostname','127.0.0.1','--port',String(port)],{cwd:root,env:{...process.env,XDG_DATA_HOME:root+'/data',XDG_CACHE_HOME:root+'/cache',XDG_CONFIG_HOME:root+'/config',XDG_STATE_HOME:root+'/state',OPENCODE_CONFIG_CONTENT:JSON.stringify(config),OPENCODE_SERVER_PASSWORD:'local-test'},stdio:['ignore','pipe','pipe']});let logs='';proc.stdout.on('data',b=>logs+=b);proc.stderr.on('data',b=>logs+=b);
-const client=new OpenCodeClient('http://127.0.0.1:'+port,root,'local-test');
-try {let healthy=false;for(let i=0;i<120;i++){try{console.log('HEALTH',await client.request('/global/health'));healthy=true;break;}catch{}await new Promise(r=>setTimeout(r,500));}if(!healthy)throw Error('startup: '+logs);
-console.log('MCP',await client.configure(bridge));const session=await client.request('/session','POST',{title:'Integration test'});console.log('SESSION',session.id);await client.request('/session/'+session.id,'PATCH',{title:'笔记编辑与可视化'});assert.equal((await client.request('/session/'+session.id)).title,'笔记编辑与可视化');
-await client.request('/session/'+session.id+'/prompt_async','POST',{agent:'note_agent',model:{providerID:'demo',modelID:'demo-model'},parts:[{type:'text',text:'Edit note, publish visualization, create note.'}]});
-let done=false;for(let i=0;i<180;i++){const msgs=await client.request('/session/'+session.id+'/message');const last=msgs.at(-1);if(last?.info.error)throw Error(JSON.stringify(last.info.error));if(last?.info.role==='assistant'&&last.info.time?.completed&&last.info.finish!=='tool-calls'){done=true;await fs.writeFile(path.join(root,'messages.json'),JSON.stringify(msgs,null,2));break;}await new Promise(r=>setTimeout(r,500));}
-assert(done,'model completion timeout');const savedMessages=await client.request('/session/'+session.id+'/message');assert(savedMessages.some(m=>m.parts.some(p=>p.type==='reasoning'&&p.text.includes('已检查工具结果'))),'reasoning available in restored history');assert.equal(notes.get('测试.md'),'目标：新内容');assert.equal(notes.get('新笔记.md'),'# 已创建');assert.equal(artifacts.length,1);assert.equal(journal.length,1);engine.stop();await engine.undo(journal[0].id);assert.equal(notes.get('测试.md'),'目标：旧内容');
-await client.request('/session/'+session.id+'/abort','POST');assert((await client.request('/session')).some(s=>s.id===session.id));console.log('PASS real OpenCode 1.19.0 -> local scripted provider -> MCP -> edit, create, visualize, undo, history, abort');
-}catch(e){console.error('FAIL',e,logs);process.exitCode=1;}finally{proc.kill('SIGTERM');provider.closeAllConnections();provider.close();await bridge.close();}
-})().catch(e=>{console.error(e);process.exit(1);});
+
+const settings={executable:process.env.OPENCODE_BIN||'opencode',provider:'demo',model:'demo-model',baseURL:providerURL};
+const runtime=new OpenCodeRuntime({directory:root,execute,settings:()=>settings,apiKey:()=> 'local-test',env:{...process.env,XDG_DATA_HOME:root+'/data',XDG_CACHE_HOME:root+'/cache',XDG_CONFIG_HOME:root+'/config',XDG_STATE_HOME:root+'/state'}});
+const store=new WorkspaceStore({},settings);const service=new ConversationService({runtime,engine,state:store.state,persist:()=>store.save(),refresh:()=>{},context:async()=>({notes:[]}),model:()=>({providerID:'demo',modelID:'demo-model'}),pollMs:100});
+try{
+const [a,b]=await Promise.all([runtime.connect(),runtime.connect()]);assert.equal(a,b,'one shared connection');
+await service.send('编辑测试笔记并创建交互卡片');assert.equal(store.state.status,'已完成');assert.equal(notes.get('测试.md'),'目标：新内容');assert.equal(notes.get('新笔记.md'),'# 已创建');assert.equal(artifacts.length,1);assert.equal(journal.length,1);
+assert(store.state.transcript.some(m=>m.reasoning.includes('已检查工具结果')));assert.equal((await runtime.request('/session/'+store.state.sessionId)).title,'编辑测试笔记并创建交互卡片');
+await service.restore(store.state.sessionId);assert((await service.history()).some(s=>s.id===store.state.sessionId));await engine.undo(journal[0].id);assert.equal(notes.get('测试.md'),'目标：旧内容');
+await service.stop();await runtime.disconnect();assert.equal(runtime.client,null);await runtime.connect();assert((await service.history()).some(s=>s.id===store.state.sessionId));
+console.log('PASS modular runtime + conversation service: tools, edit, create, cards, reasoning, title, history, undo, shared connection, restart');
+}finally{await runtime.disconnect();provider.closeAllConnections();provider.close();}
+const broken=new OpenCodeRuntime({directory:root,execute,settings:()=>({...settings,executable:path.join(root,'missing-executable')})});await assert.rejects(broken.connect());assert.equal(broken.resources,null);await broken.disconnect();console.log('PASS failed startup releases MCP and child resources');
+})().catch(e=>{console.error(e);process.exitCode=1;});

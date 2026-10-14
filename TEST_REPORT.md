@@ -55,3 +55,10 @@
 - 过程消息默认折叠并明确标记非最终回答；正文选中期间更新未替换 DOM，取消选择后补上最新内容。
 - 浏览器 fixture 使用 Marked 17.0.5 作为 GFM 渲染替身，以及 Electron clipboard 的记录替身；生产代码继续使用 Obsidian MarkdownRenderer 与 Electron 系统剪贴板。本轮没有在原生 Obsidian 中自动验证系统剪贴板或全部主题。
 - 要复现 Markdown fixture，将 VAULTBRIDGE_MARKED_PATH 指向本机 marked/lib/marked.umd.js 后运行 node tests/ui/server.cjs。不设置该变量时，fixture 仅作纯文本界面测试。测试渲染器不随插件分发。
+
+## 0.2.0 重构与界面验证（2026-10-15）
+
+- 25 项 Node 测试：原有编辑与协议回归，以及旧状态兼容、快照写入、执行记录分组、连接中取消、错误释放、并行发送拒绝、会话切换互斥和超时报告。
+- 真实 OpenCode 1.19.0 + 本地模拟 SSE 模型：通过新的 Runtime 与 ConversationService 完成读取、修改、新建、可视化、思考映射、标题、历史、撤销、共享连接及断开后重连。无效可执行路径启动失败后释放资源。
+- 实际打包 AgentView 浏览器 fixture：执行记录、思考和工具参数/结果展开；完整 Markdown 复制；表格渲染；Enter 发送；Shift+Enter 换行；深色主题；320 × 500 侧栏没有横向溢出，发送按钮位于模拟状态栏之上；生成时按钮切换为停止。
+- 界面 fixture 使用 Obsidian API、图标与剪贴板替身，Markdown 使用 Marked。此次未在原生 Obsidian 中自动复测所有界面行为，也未调用真实付费模型。原生主题样式及不同平台仍需要实际使用验证。

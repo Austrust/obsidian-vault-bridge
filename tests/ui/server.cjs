@@ -5,7 +5,7 @@ http.createServer((req,res)=>{
   const routes={'/':'index.html','/harness.js':'harness.js','/fixture.js':'fixture.js'};
   let content,type='application/javascript';
   if(req.url==='/marked.js'){if(process.env.VAULTBRIDGE_MARKED_PATH)content=fs.readFileSync(process.env.VAULTBRIDGE_MARKED_PATH);else content='/* Optional Markdown fixture renderer not configured. */';}
-  else if(req.url==='/plugin.js')content='(function(){\n'+fs.readFileSync(path.join(root,'main.js'),'utf8').replace('module.exports=NoteAgent;','window.PluginClass=NoteAgent;window.ViewClass=AgentView;')+'\n})();';
+  else if(req.url==='/plugin.js')content='(function(){\n'+fs.readFileSync(path.join(root,'main.js'),'utf8').replace('module.exports=NoteAgent;','window.PluginClass=NoteAgent;window.ViewClass=AgentView;module.exports=NoteAgent;')+'\n})();';
   else if(req.url==='/styles.css'){content=fs.readFileSync(path.join(root,'styles.css'));type='text/css';}
   else if(routes[req.url]){content=fs.readFileSync(path.join(__dirname,routes[req.url]));if(req.url==='/')type='text/html; charset=utf-8';}
   else {res.writeHead(404);res.end();return;}
