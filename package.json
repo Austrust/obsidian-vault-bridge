@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-vault-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check main.js && node --check core.js",
+    "build": "node build.cjs",
+    "integration": "node tests/integration.cjs"
+  },
+  "description": "An open-source agent workspace for your vault, powered by OpenCode. Chat, edit notes, and create DataviewJS cards.",
+  "license": "MIT",
+  "author": "Austrust",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Austrust/obsidian-vault-bridge.git"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
