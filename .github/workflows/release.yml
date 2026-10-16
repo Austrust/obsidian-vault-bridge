@@ -29,4 +29,4 @@ jobs:
         shell: pwsh
         run: |
           $releaseVersion = $env:GITHUB_REF_NAME
-          gh release create $releaseVersion "dist/$releaseVersion/main.js" "dist/$releaseVersion/manifest.json" "dist/$releaseVersion/styles.css" "dist/$releaseVersion/checksums.json" --verify-tag --draft --title "VaultBridge $releaseVersion" --notes-file "docs/RELEASE-$releaseVersion.md"
+          gh release create $releaseVersion "dist/$releaseVersion/main.js" "dist/$releaseVersion/manifest.json" "dist/$releaseVersion/styles.css" "dist/$releaseVersion/checksums.json" --verify-tag --draft --title "VaultBridge Agent $releaseVersion" --notes-file "docs/RELEASE-$releaseVersion.md"

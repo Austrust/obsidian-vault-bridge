@@ -1,4 +1,4 @@
-# Architecture · 0.7.4 · Windows workspace
+# Architecture · 0.7.5 · Windows workspace
 
 VaultBridge separates the Obsidian interface from agent execution and note mutations. The release remains a single `main.js`; development uses small CommonJS modules with no bundler dependencies.
 
@@ -33,7 +33,7 @@ Note mutation guarantees remain in NoteEngine, independently of the UI or model.
 
 Connection drafts reconcile each field against a baseline and the live settings. Untouched fields follow external changes; conflicting edits block submission until the current configuration is loaded. Resource and Skill forms render and submit the same panel-local draft. Selection-only attachments remove the same note from whole-file references and retain a selected-text snapshot; reference previews make that scope visible.
 
-Keep the same plugin ID and runtime directory when upgrading in place. Changing from the original `obsidian-agent-demo` ID to `vault-bridge` is a separate migration: OpenCode session lookup depends on its working directory. Do not silently move it during a UI update.
+The current public ID is `vaultbridge-agent`. The previous `vault-bridge` ID conflicts with an unrelated community entry; `obsidian-agent-demo` is an older legacy ID. Keep the existing ID and runtime directory for manual in-place updates: OpenCode session lookup depends on its working directory. The updater checks the author for the conflicting legacy ID and refuses unrelated installations. A change to community-managed installation is a separate migration; do not silently move runtime data or enable both IDs.
 
 ## Local diff and history
 

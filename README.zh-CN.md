@@ -1,6 +1,6 @@
-# VaultBridge 0.7.4 · Windows 发布版
+# VaultBridge Agent 0.7.5 · Windows 发布版
 
-**[0.7.4 Release 已公开发布](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.4)**，PR #1 已合入 `main`。当前可手动安装；社区目录需要单独提交和审核。问题状态见 [修复清单](docs/ISSUE-STATUS.md)，验证证据见 [测试报告](TEST_REPORT.md)。
+**[0.7.5 Release 已公开发布](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.5)**，PR #1 已合入 `main`。当前可手动安装；社区目录需要单独提交和审核。问题状态见 [修复清单](docs/ISSUE-STATUS.md)，验证证据见 [测试报告](TEST_REPORT.md)。
 
 最新一轮[用户视角复审](docs/USER-READINESS-2026-10-16.md)中的配置、选区、路径草稿、首次安装和菜单问题已修复并复验。发行文件由 Windows CI 构建验证，社区目录上架状态与 GitHub Release 分开记录。
 
@@ -48,7 +48,13 @@ API Key 可选择“仅本次运行”或“保存在本机，下次继续使用
 
 插件仅在显式选择后读取外部资料目录与 Skills；外部写入需要单独授权。OpenCode 可执行文件与本机凭据保存在笔记库之外，本地连接使用回环地址和认证。OpenCode 是单独的应用，有自身配置与联网行为。插件不采集分析或遥测，不自动安装或更新依赖；可选安装脚本由用户手动运行。交互卡的 DataviewJS 代码有宿主权限，可在点击运行前查看。
 
-## 原位更新
+## 社区身份与原位更新
+
+0.7.5 的新安装目录和社区 ID 为 `vaultbridge-agent`，名称为 **VaultBridge Agent**。原来的 `vault-bridge` 已被另一位作者的文件传输插件占用，不能用该目录条目更新本插件；0.7.4 发行文件保留不变。
+
+已有安装继续原位更新并保留旧 ID、会话及运行目录。更新器核对旧 `vault-bridge` 的作者为 `Austrust`，拒绝覆盖同 ID 的其他插件。不要同时启用新旧两个 ID，也不要自动复制数据作为迁移；切换到社区自动更新需要另行迁移。
+
+保留旧 `vault-bridge` ID 的安装请只从本仓库手动更新：Obsidian 社区更新器会把该 ID 对应到另一款插件，不要应用它提示的社区更新。新 ID `vaultbridge-agent` 用于后续社区安装。
 
 先构建，再用更新器指定**已经存在的插件目录**及**插件目录外的备份位置**：
 
@@ -59,4 +65,4 @@ node scripts/install.cjs "<插件目录>" "<备份目录>"
 
 更新器保留旧 ID（包括 `obsidian-agent-demo`）、`data.json` 和 `runtime/history.git`。只备份并替换 `main.js`、`manifest.json`、`styles.css`，核对哈希后输出报告。更新完成后重载插件。本机实际安装使用 `vault-bridge`。
 
-本地交付包通过 `node scripts/package.cjs` 生成到 `dist/0.7.4/`；包含三个发布文件和源码/发布文件 SHA-256 清单。Windows CI 从干净检出构建、回归并上传候选包，版本 tag 自动准备草稿 Release。API Key、用户笔记、插件运行数据与 Git 历史不进入交付包。
+本地交付包通过 `node scripts/package.cjs` 生成到 `dist/0.7.5/`；包含三个发布文件和源码/发布文件 SHA-256 清单。Windows CI 从干净检出构建、回归并上传候选包，版本 tag 自动准备草稿 Release。API Key、用户笔记、插件运行数据与 Git 历史不进入交付包。

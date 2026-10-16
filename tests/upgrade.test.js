@@ -5,7 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { install } = require("../scripts/install.cjs");
 const { pack } = require("../scripts/package.cjs");
-test("upgrade preserves both supported plugin IDs, user data and runtime history, with release backup", async (t) => {
+test("upgrade preserves current and legacy plugin IDs, user data and runtime history, with release backup", async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "vb-upgrade-test-"));
   t.after(async () => {
     if (
@@ -16,7 +16,11 @@ test("upgrade preserves both supported plugin IDs, user data and runtime history
       throw Error("unsafe cleanup");
     await fs.rm(root, { recursive: true, force: true });
   });
-  for (const id of ["vault-bridge", "obsidian-agent-demo"]) {
+  for (const id of [
+    "vaultbridge-agent",
+    "vault-bridge",
+    "obsidian-agent-demo",
+  ]) {
     const target = path.join(root, id);
     await fs.mkdir(path.join(target, "runtime", "history.git"), {
       recursive: true,
@@ -29,7 +33,7 @@ test("upgrade preserves both supported plugin IDs, user data and runtime history
     );
     await fs.writeFile(
       path.join(target, "manifest.json"),
-      JSON.stringify({ id, version: "0.1.0" }),
+      JSON.stringify({ id, author: "Austrust", version: "0.1.0" }),
     );
     await fs.writeFile(path.join(target, "main.js"), "old-main");
     await fs.writeFile(path.join(target, "styles.css"), "old-css");
@@ -84,7 +88,11 @@ test("failed upgrade restores every old release file and retains user data", asy
   const target = path.join(root, "vault-bridge");
   await fs.mkdir(target);
   const originals = {
-    "manifest.json": JSON.stringify({ id: "vault-bridge", version: "0.1.0" }),
+    "manifest.json": JSON.stringify({
+      id: "vault-bridge",
+      author: "Austrust",
+      version: "0.1.0",
+    }),
     "main.js": "old-main",
     "styles.css": "old-css",
     "data.json": '{"retained":true}',
@@ -111,4 +119,45 @@ test("failed upgrade restores every old release file and retains user data", asy
   }
   for (const [file, text] of Object.entries(originals))
     assert.equal(await fs.readFile(path.join(target, file), "utf8"), text);
+});
+
+test("upgrade refuses an unrelated author using the conflicting legacy ID", async (t) => {
+  const root = await fs.mkdtemp(
+    path.join(os.tmpdir(), "vb-upgrade-collision-"),
+  );
+  t.after(async () => {
+    if (
+      !path
+        .resolve(root)
+        .startsWith(
+          path.resolve(os.tmpdir()) + path.sep + "vb-upgrade-collision-",
+        )
+    )
+      throw Error("unsafe cleanup");
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const target = path.join(root, "vault-bridge");
+  await fs.mkdir(target);
+  const manifest = JSON.stringify({
+    id: "vault-bridge",
+    author: "Unrelated Author",
+    version: "1.0.0",
+  });
+  await fs.writeFile(path.join(target, "manifest.json"), manifest);
+  await fs.writeFile(path.join(target, "main.js"), "unrelated-plugin");
+  await assert.rejects(
+    install(target, path.join(root, "backups")),
+    /another or unverified author/,
+  );
+  assert.equal(
+    await fs.readFile(path.join(target, "main.js"), "utf8"),
+    "unrelated-plugin",
+  );
+  assert.equal(
+    await fs.readFile(path.join(target, "manifest.json"), "utf8"),
+    manifest,
+  );
+  await assert.rejects(fs.access(path.join(root, "backups")), {
+    code: "ENOENT",
+  });
 });

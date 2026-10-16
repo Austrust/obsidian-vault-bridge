@@ -53,10 +53,19 @@
   gap: 4px;
 }
 .vb-brand {
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
   gap: 7px;
   white-space: nowrap;
+}
+.vb-brand > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vb-brand-mark,
+.vb-header-actions {
+  flex-shrink: 0;
 }
 .vb-brand-mark {
   display: flex;

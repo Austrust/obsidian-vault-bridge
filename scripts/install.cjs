@@ -14,11 +14,18 @@ async function install(
     await fs.readFile(path.join(target, "manifest.json"), "utf8"),
   );
   if (
-    !["vault-bridge", "obsidian-agent-demo"].includes(oldManifest.id) ||
+    !["vaultbridge-agent", "vault-bridge", "obsidian-agent-demo"].includes(
+      oldManifest.id,
+    ) ||
     path.basename(target) !== oldManifest.id
   )
     throw Error(
       "Target must be an existing VaultBridge plugin directory with a matching ID",
+    );
+  // The old ID is also owned by an unrelated community plugin. Never overwrite it.
+  if (oldManifest.id === "vault-bridge" && oldManifest.author !== "Austrust")
+    throw Error(
+      "The legacy vault-bridge ID belongs to another or unverified author; refusing to overwrite it",
     );
   const backup = path.resolve(
     backupRoot,

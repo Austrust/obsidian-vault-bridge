@@ -1,4 +1,12 @@
-# 0.7.4 validation
+# 0.7.5 validation
+
+Version 0.7.5 changes the public ID to `vaultbridge-agent` and display name to VaultBridge Agent after the directory rejected the conflicting `vault-bridge` ID. No backend behavior or data migration is changed.
+
+105 automated tests passed, zero failures or skips. The updater accepts the new ID and preserves both legacy IDs, data and runtime; a new regression proves it refuses an unrelated author under `vault-bridge` without writing backups or plugin files. The real Obsidian installation reports 0.7.5 / VaultBridge Agent while retaining its legacy ID and unchanged data. Eight light/dark, width and zoom layout combinations passed with the longer name; screenshot inspection confirmed title truncation keeps actions visible. Installation backed up the three release files first.
+
+The real provider, runtime failure and comprehensive menu tests below were performed for 0.7.4. They are retained evidence for the unchanged backend, not new paid provider runs for this metadata and naming update.
+
+## 0.7.4 acceptance record
 
 Validated on Windows with Obsidian 1.14.4, OpenCode 1.19.0 and Node 24.19.0 on 2026-10-16. Release 0.7.4 is publicly available and PR #1 is merged into main. Community-directory approval is separate from these checks.
 

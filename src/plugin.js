@@ -213,7 +213,7 @@ class NoteAgent extends Plugin {
       refresh: () => this.refresh(),
     });
     this.registerView(VIEW, (leaf) => new AgentView(leaf, this));
-    this.addRibbonIcon("bot", "打开 VaultBridge", () => this.open());
+    this.addRibbonIcon("bot", "打开 VaultBridge Agent", () => this.open());
     this.addCommand({
       id: "open",
       name: "打开原生 Agent 侧边栏",

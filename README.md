@@ -1,8 +1,8 @@
-# VaultBridge
+# VaultBridge Agent
 
-An OpenCode-powered agent sidebar for Obsidian. **[Download Windows release 0.7.4](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.4)**. The release is available for manual installation; community-directory listing is a separate review process.
+An OpenCode-powered agent sidebar for Obsidian. **[Download Windows release 0.7.5](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.5)**. The release is available for manual installation; community-directory listing is a separate review process.
 
-The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. PR #1 is merged into `main`, and the 0.7.4 release files passed Windows CI.
+The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. The 0.7.4 base was merged into `main` through PR #1; Windows CI validates each release.
 
 [中文使用说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md) · [Current validation](TEST_REPORT.md) · [Issue ledger](docs/ISSUE-STATUS.md) · [MIT license](LICENSE)
 
@@ -30,11 +30,15 @@ node build.cjs
 node scripts/install.cjs "<existing-plugin-directory>" "<backup-directory-outside-plugin>"
 ```
 
-Both `vault-bridge` and the legacy `obsidian-agent-demo` are supported by the updater. It backs up and replaces only the three release files. Reload the plugin after upgrading. Never copy one installation's data or runtime into another ID as an implicit migration.
+New installations use the plugin ID and directory `vaultbridge-agent`. The former `vault-bridge` ID is already owned by an unrelated community plugin, so version 0.7.5 uses **VaultBridge Agent** as its community identity. Version 0.7.4 remains available unchanged.
+
+The updater preserves the existing directory and ID for our older `vault-bridge` installations (author `Austrust`) and the legacy `obsidian-agent-demo`. It rejects unrelated or unverified authors using the conflicting ID. It backs up and replaces only the three release files. Reload the plugin after upgrading. Do not install the unrelated directory entry over this plugin, enable both old and new IDs together, or copy data/runtime into another ID as an implicit migration. Existing local installations continue using the manual in-place updater; switching to community-managed updates requires a separate migration.
 
 Dataview with JavaScript queries is required only to run interactive cards. Git is optional and available under advanced settings for manual snapshots or old history.
 
 ## Network, accounts and file access
+
+Existing installations under `vault-bridge` must use manual updates from this repository. Obsidian's community updater resolves that ID to the unrelated plugin; do not apply its suggested update to this installation. The new `vaultbridge-agent` ID is intended for community-managed installations.
 
 VaultBridge is free under the MIT license. Model requests require access to the configured provider; DeepSeek requires an account, API key and available API credit. Provider charges are separate from this plugin. There is no VaultBridge subscription or developer-operated inference service.
 
@@ -55,4 +59,4 @@ node scripts/package.cjs
 
 Run `node tests/integration.cjs` with `OPENCODE_BIN` pointing to the installed executable. It uses an independent sample and a local scripted model, without paid API requests. The opt-in `tests/live-provider.cjs` uses existing DeepSeek credentials and a paid request only when `VAULTBRIDGE_LIVE_TEST=1` is set. `node tests/ui/server.cjs` serves the real bundle in an Obsidian UI fixture at `http://127.0.0.1:41967/`.
 
-`dist/0.7.4/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release for explicit publication. Development history and the released code are preserved on `main`. Runtime credentials, vault data, histories and caches must remain outside source control.
+`dist/0.7.5/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release for explicit publication. Development history and the released code are preserved on `main`. Runtime credentials, vault data, histories and caches must remain outside source control.

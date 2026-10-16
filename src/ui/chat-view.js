@@ -73,7 +73,7 @@ class AgentView extends ItemView {
     return VIEW;
   }
   getDisplayText() {
-    return "VaultBridge";
+    return "VaultBridge Agent";
   }
   getIcon() {
     return "bot";
@@ -85,8 +85,9 @@ class AgentView extends ItemView {
     root.addClass("vb-workspace");
     const header = root.createDiv("vb-header");
     const brand = header.createDiv("vb-brand");
+    brand.setAttribute("title", "VaultBridge Agent");
     setIcon(brand.createSpan("vb-brand-mark"), "waypoints");
-    brand.createSpan({ text: "VaultBridge" });
+    brand.createSpan({ text: "VaultBridge Agent" });
     const controls = header.createDiv("vb-header-actions");
     this.connection = this.button(
       controls,
@@ -426,7 +427,7 @@ class AgentView extends ItemView {
                 .map(
                   (m) =>
                     "## " +
-                    (m.role === "user" ? "你" : "VaultBridge") +
+                    (m.role === "user" ? "你" : "VaultBridge Agent") +
                     "\n\n" +
                     m.text,
                 )
@@ -901,10 +902,10 @@ class AgentView extends ItemView {
       row.label.textContent =
         {
           user: "你",
-          answer: "VaultBridge",
+          answer: "VaultBridge Agent",
           draft: "正在回复",
           error: "回复已中断",
-        }[kind] || "VaultBridge";
+        }[kind] || "VaultBridge Agent";
       row.copy.disabled = !m.text;
       if (row.edit) row.edit.disabled = busy || !!m.localPending;
       this.renderMessageBody(row, m, kind);
