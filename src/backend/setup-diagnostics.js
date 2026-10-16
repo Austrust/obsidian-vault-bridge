@@ -7,7 +7,7 @@ const version = (executable, env = process.env) =>
     execFile(
       executable,
       ["--version"],
-      { windowsHide: true, timeout: 10000, maxBuffer: 8192, env },
+      { windowsHide: true, shell: false, timeout: 10000, maxBuffer: 8192, env },
       (error, stdout) => {
         if (error)
           return reject(Error("无法运行 OpenCode，请检查可执行文件路径"));

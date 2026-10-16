@@ -147,6 +147,7 @@ class OpenCodeRuntime {
         },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
+        shell: false,
       },
     );
     resources.proc = proc;

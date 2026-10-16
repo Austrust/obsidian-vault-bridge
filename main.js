@@ -5,35 +5,35 @@ const __modules=[function(module,exports,__load,require){
 const { Plugin, Notice, MarkdownView } = require("obsidian");
 const path = require("node:path");
 const { hash, NoteEngine } = __load(1);
-const { AgentView, VIEW } = __load(3);
-const { GitHistory } = __load(12);
-const { PermissionGate } = __load(13);
-const { PermissionModal } = __load(10);
-const { GitHistoryModal } = __load(14);
-const { Settings } = __load(15);
-const { ChangeHistory } = __load(7);
-const { UndoHistory } = __load(19);
-const { DEMO_CODE } = __load(20);
-const { DEFAULTS } = __load(21);
-const { WorkspaceStore } = __load(22);
-const { SessionComposer } = __load(23);
+const { AgentView, VIEW } = __load(4);
+const { GitHistory } = __load(13);
+const { PermissionGate } = __load(14);
+const { PermissionModal } = __load(11);
+const { GitHistoryModal } = __load(15);
+const { Settings } = __load(16);
+const { ChangeHistory } = __load(8);
+const { UndoHistory } = __load(20);
+const { DEMO_CODE } = __load(21);
+const { DEFAULTS } = __load(22);
+const { WorkspaceStore } = __load(23);
+const { SessionComposer } = __load(24);
 const {
   validateConnection,
   modelCatalog,
-} = __load(18);
-const { OpenCodeRuntime } = __load(24);
-const { NoteTools } = __load(28);
-const { ConversationService } = __load(29);
-const { archiveJournal } = __load(32);
-const { ArtifactService } = __load(33);
-const { SessionHistory } = __load(34);
-const { ModelPicker } = __load(35);
-const { VaultAdapter } = __load(36);
-const { ExternalWorkspace } = __load(37);
-const { readableError } = __load(30);
-const { Resources } = __load(38);
-const { TurnQueue } = __load(39);
-const { WorkspacePanel, SkillPicker } = __load(40);
+} = __load(19);
+const { OpenCodeRuntime } = __load(25);
+const { NoteTools } = __load(29);
+const { ConversationService } = __load(30);
+const { archiveJournal } = __load(33);
+const { ArtifactService } = __load(34);
+const { SessionHistory } = __load(35);
+const { ModelPicker } = __load(36);
+const { VaultAdapter } = __load(37);
+const { ExternalWorkspace } = __load(38);
+const { readableError } = __load(31);
+const { Resources } = __load(39);
+const { TurnQueue } = __load(40);
+const { WorkspacePanel, SkillPicker } = __load(41);
 const LIFECYCLE = Symbol.for("vaultbridge.lifecycle");
 class NoteAgent extends Plugin {
   async onload() {
@@ -743,6 +743,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { planUndo, applyUndo } = __load(2);
+const { validateFileNames } = __load(3);
 const hash = (text) => crypto.createHash("sha256").update(text).digest("hex");
 function vaultPath(value) {
   if (
@@ -755,6 +756,7 @@ function vaultPath(value) {
   )
     throw Error("需要库内相对路径");
   const parts = value.split("/");
+  validateFileNames(value);
   if (parts.some((p) => !p || p === ".." || p === "." || p.startsWith(".")))
     throw Error("不允许隐藏目录或越界路径");
   return value;
@@ -1139,6 +1141,26 @@ module.exports = { planUndo, applyUndo, recentRuns };
 },
 function(module,exports,__load,require){
 "use strict";
+// Windows aliases must not bypass the ordinary-file and recovery boundaries.
+function validateFileNames(relative, platform = process.platform) {
+  if (platform !== "win32") return;
+  for (const part of relative.split("/")) {
+    if (
+      /[<>:"|?*\x00-\x1f]/.test(part) ||
+      /[. ]$/.test(part) ||
+      /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(part)
+    )
+      throw Error("不支持 Windows 特殊文件名、设备名或备用数据流");
+  }
+}
+function isRecoveryName(name) {
+  return name.toLowerCase() === "vaultbridge recovery";
+}
+module.exports = { validateFileNames, isRecoveryName };
+
+},
+function(module,exports,__load,require){
+"use strict";
 const {
   ItemView,
   MarkdownRenderer,
@@ -1149,12 +1171,12 @@ const {
   Menu,
   Modal,
 } = require("obsidian");
-const { shouldSend, conversationItems } = __load(4);
-const { turnSummaries } = __load(5);
-const { renderDiff } = __load(7);
-const { ComposerPicker } = __load(8);
-const { showMenuAtTrigger } = __load(9);
-const { renderPermission, PermissionModal } = __load(10);
+const { shouldSend, conversationItems } = __load(5);
+const { turnSummaries } = __load(6);
+const { renderDiff } = __load(8);
+const { ComposerPicker } = __load(9);
+const { showMenuAtTrigger } = __load(10);
+const { renderPermission, PermissionModal } = __load(11);
 const VIEW = "note-agent-opencode";
 class ReferencePreview extends Modal {
   constructor(app, title, read, hint) {
@@ -2230,13 +2252,24 @@ class AgentView extends ItemView {
   }
   async copyText(text) {
     // Desktop Obsidian exposes Electron's clipboard without browser focus/permission prompts.
-    const clipboard = require("electron").clipboard;
-    if (clipboard?.writeText) clipboard.writeText(text);
-    else
-      await this.contentEl.ownerDocument.defaultView.navigator.clipboard.writeText(
-        text,
-      );
-    new Notice("已复制");
+    try {
+      let clipboard;
+      try {
+        clipboard = require("electron").clipboard;
+      } catch {
+        // Some host contexts do not expose Electron; use their write-only API.
+      }
+      if (clipboard?.writeText) await clipboard.writeText(text);
+      else
+        await this.contentEl.ownerDocument.defaultView.navigator.clipboard.writeText(
+          text,
+        );
+      new Notice("已复制");
+      return true;
+    } catch {
+      new Notice("复制失败，请选中文本后手动复制");
+      return false;
+    }
   }
   renderMessageBody(row, m, kind) {
     if (row.editing) return;
@@ -2383,7 +2416,7 @@ class AgentView extends ItemView {
     });
   }
   renderChanges() {
-    const changes = __load(11).sessionChanges(
+    const changes = __load(12).sessionChanges(
       this.p.journal,
       this.p.sessionId,
     );
@@ -2580,7 +2613,7 @@ module.exports.conversationItems = conversationItems;
 
 },
 function(module,exports,__load,require){
-const { lineDiff } = __load(6);
+const { lineDiff } = __load(7);
 function turnSummaries(messages, journal, sessionId) {
   const anchors = new Map();
   for (const m of messages) {
@@ -2706,7 +2739,7 @@ module.exports = { lineDiff, diffContext };
 function(module,exports,__load,require){
 "use strict";
 const { Modal, Notice } = require("obsidian");
-const { lineDiff, diffContext } = __load(6);
+const { lineDiff, diffContext } = __load(7);
 function renderDiff(parent, entry) {
   const rows = lineDiff(entry.before || "", entry.after || "");
   const plus = rows.filter((r) => r.kind === "add").length,
@@ -3052,7 +3085,7 @@ module.exports = { showMenuAtTrigger };
 },
 function(module,exports,__load,require){
 const { Modal } = require("obsidian");
-const { renderDiff } = __load(7);
+const { renderDiff } = __load(8);
 function renderPermission(c, request, finish, expand) {
   c.addClass("vb-approval", "vb-surface");
   c.createEl("h3", { text: request.label });
@@ -3199,7 +3232,7 @@ class GitHistory {
           'core.hooksPath=' + path.join(this.directory, 'disabled-hooks'),
           ...args,
         ],
-        { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
+        { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, shell: false },
       );
       const out = [],
         err = [];
@@ -3691,17 +3724,17 @@ const {
   detectExecutable,
   credentialStatus,
   version,
-} = __load(16);
+} = __load(17);
 const {
   connectionErrors,
   reconcileDraft,
-} = __load(18);
+} = __load(19);
 const {
   permissionDefaults,
   permissionLabels,
   permissionPreset,
   inferPreset,
-} = __load(13);
+} = __load(14);
 const connectionKeys = ["executable", "provider", "model", "baseURL"];
 class Settings extends PluginSettingTab {
   constructor(app, p) {
@@ -4284,14 +4317,14 @@ module.exports = { Settings };
 function(module,exports,__load,require){
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { runtimeEnvironment } = __load(17);
+const { runtimeEnvironment } = __load(18);
 const { execFile } = require("node:child_process");
 const version = (executable, env = process.env) =>
   new Promise((resolve, reject) => {
     execFile(
       executable,
       ["--version"],
-      { windowsHide: true, timeout: 10000, maxBuffer: 8192, env },
+      { windowsHide: true, shell: false, timeout: 10000, maxBuffer: 8192, env },
       (error, stdout) => {
         if (error)
           return reject(Error("无法运行 OpenCode，请检查可执行文件路径"));
@@ -4475,7 +4508,7 @@ function(module,exports,__load,require){
 "use strict";
 const { Modal, Notice } = require("obsidian");
 const { recentRuns } = __load(2);
-const { renderDiff } = __load(7);
+const { renderDiff } = __load(8);
 const labels = {
   edit: "恢复原文",
   create: "移入恢复目录",
@@ -4757,11 +4790,11 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
 const net = require("node:net");
 const crypto = require("node:crypto");
-const { Diagnostics } = __load(25);
-const { runtimeEnvironment } = __load(17);
-const { startBridge } = __load(26);
-const { OpenCodeClient, agentConfig } = __load(27);
-const { validateConnection } = __load(18);
+const { Diagnostics } = __load(26);
+const { runtimeEnvironment } = __load(18);
+const { startBridge } = __load(27);
+const { OpenCodeClient, agentConfig } = __load(28);
+const { validateConnection } = __load(19);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const supportedVersion = "1.19.0";
 function validateHealth(health) {
@@ -4901,6 +4934,7 @@ class OpenCodeRuntime {
         },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
+        shell: false,
       },
     );
     resources.proc = proc;
@@ -5365,9 +5399,9 @@ module.exports = { NoteTools };
 function(module,exports,__load,require){
 "use strict";
 const crypto = require("node:crypto");
-const { readableError } = __load(30);
-const { conversationTitle, displayTitle } = __load(4);
-const { OpenCodeSessions } = __load(31);
+const { readableError } = __load(31);
+const { conversationTitle, displayTitle } = __load(5);
+const { OpenCodeSessions } = __load(32);
 function buildPrompt(raw, context) {
   let text = raw.replace(/^@DeepSeek\s*/i, "");
   if (/^\/visualize(?:\s|$)/.test(text))
@@ -5792,7 +5826,7 @@ module.exports = { readableError };
 },
 function(module,exports,__load,require){
 'use strict';
-const { messageView } = __load(4);
+const { messageView } = __load(5);
 /** Harness contract: normalized sessions/messages and lifecycle operations.
  * Other backends implement this interface; no OpenCode routes leak into the service.
  */
@@ -5994,8 +6028,8 @@ module.exports = { ArtifactService };
 },
 function(module,exports,__load,require){
 const { Modal, Notice, Menu } = require("obsidian");
-const { relativeTime } = __load(5);
-const { showMenuAtTrigger } = __load(9);
+const { relativeTime } = __load(6);
+const { showMenuAtTrigger } = __load(10);
 class SessionHistory extends Modal {
   constructor(app, plugin, items) {
     super(app);
@@ -6159,7 +6193,7 @@ module.exports = { SessionHistory };
 },
 function(module,exports,__load,require){
 const { Modal, Notice } = require("obsidian");
-const { connectionErrors } = __load(18);
+const { connectionErrors } = __load(19);
 class ModelPicker extends Modal {
   constructor(app, p) {
     super(app);
@@ -6304,6 +6338,7 @@ function(module,exports,__load,require){
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { vaultPath, checkPhysical } = __load(1);
+const { isRecoveryName } = __load(3);
 // Recovery files remain visible and are never automatically removed.
 const RECOVERY = "VaultBridge Recovery";
 
@@ -6314,7 +6349,7 @@ class VaultAdapter {
   async check(p) {
     this.guard();
     vaultPath(p);
-    if (p === RECOVERY || p.startsWith(RECOVERY + "/"))
+    if (isRecoveryName(p.split("/")[0]))
       throw Error("恢复副本目录由用户管理，Agent 不能修改");
     await checkPhysical(this.root, p);
     this.guard();
@@ -6464,7 +6499,7 @@ class VaultAdapter {
     for (const file of this.vault.getFiles()) {
       if (
         file.path.split("/").some((x) => x.startsWith(".")) ||
-        file.path.startsWith(RECOVERY + "/")
+        isRecoveryName(file.path.split("/")[0])
       )
         continue;
       await this.check(file.path);
@@ -6484,8 +6519,9 @@ function(module,exports,__load,require){
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { GitHistory } = __load(12);
+const { GitHistory } = __load(13);
 const { hash, replaceExact, vaultPath } = __load(1);
+const { isRecoveryName } = __load(3);
 class ExternalWorkspace {
   constructor({
     root,
@@ -6514,7 +6550,7 @@ class ExternalWorkspace {
       for (const e of await fs.readdir(dir, { withFileTypes: true })) {
         if (
           e.name.startsWith(".") ||
-          e.name === "VaultBridge Recovery" ||
+          isRecoveryName(e.name) ||
           e.isSymbolicLink()
         )
           continue;
@@ -6661,6 +6697,7 @@ const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { validateFileNames, isRecoveryName } = __load(3);
 const textTypes = new Set([
   '.md',
   '.txt',
@@ -6686,7 +6723,7 @@ class Resources {
   isText(relative) {
     return (
       textTypes.has(path.extname(relative).toLowerCase()) &&
-      !relative.split('/').includes('VaultBridge Recovery')
+      !relative.split('/').some(isRecoveryName)
     );
   }
   async listRootCheck(root) {
@@ -6706,9 +6743,10 @@ class Resources {
       relative.includes('\0') ||
       relative
         .split('/')
-        .some((x) => x === '..' || x.startsWith('.') || x === 'VaultBridge Recovery')
+        .some((x) => x === '..' || x.startsWith('.') || isRecoveryName(x))
     )
       throw Error('资料路径越界或隐藏');
+    validateFileNames(relative);
     const base = await fs.realpath(root);
     let target = base;
     for (const part of relative.split('/').filter(Boolean)) {
@@ -6744,7 +6782,7 @@ class Resources {
   async list(id, relative = '') {
     const target = await this.resolve(this.root(id), relative);
     return (await fs.readdir(target, { withFileTypes: true }))
-      .filter((e) => !e.name.startsWith('.') && !e.isSymbolicLink())
+      .filter((e) => !e.name.startsWith('.') && !isRecoveryName(e.name) && !e.isSymbolicLink())
       .slice(0, 200)
       .map((e) => ({
         path: [relative, e.name].filter(Boolean).join('/'),

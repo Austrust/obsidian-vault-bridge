@@ -1090,13 +1090,24 @@ class AgentView extends ItemView {
   }
   async copyText(text) {
     // Desktop Obsidian exposes Electron's clipboard without browser focus/permission prompts.
-    const clipboard = require("electron").clipboard;
-    if (clipboard?.writeText) clipboard.writeText(text);
-    else
-      await this.contentEl.ownerDocument.defaultView.navigator.clipboard.writeText(
-        text,
-      );
-    new Notice("已复制");
+    try {
+      let clipboard;
+      try {
+        clipboard = require("electron").clipboard;
+      } catch {
+        // Some host contexts do not expose Electron; use their write-only API.
+      }
+      if (clipboard?.writeText) await clipboard.writeText(text);
+      else
+        await this.contentEl.ownerDocument.defaultView.navigator.clipboard.writeText(
+          text,
+        );
+      new Notice("已复制");
+      return true;
+    } catch {
+      new Notice("复制失败，请选中文本后手动复制");
+      return false;
+    }
   }
   renderMessageBody(row, m, kind) {
     if (row.editing) return;
