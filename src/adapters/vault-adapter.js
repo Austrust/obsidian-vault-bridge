@@ -2,6 +2,7 @@
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { vaultPath, checkPhysical } = require("../domain/note-engine");
+const { isRecoveryName } = require("../domain/file-path");
 // Recovery files remain visible and are never automatically removed.
 const RECOVERY = "VaultBridge Recovery";
 
@@ -12,7 +13,7 @@ class VaultAdapter {
   async check(p) {
     this.guard();
     vaultPath(p);
-    if (p === RECOVERY || p.startsWith(RECOVERY + "/"))
+    if (isRecoveryName(p.split("/")[0]))
       throw Error("恢复副本目录由用户管理，Agent 不能修改");
     await checkPhysical(this.root, p);
     this.guard();
@@ -162,7 +163,7 @@ class VaultAdapter {
     for (const file of this.vault.getFiles()) {
       if (
         file.path.split("/").some((x) => x.startsWith(".")) ||
-        file.path.startsWith(RECOVERY + "/")
+        isRecoveryName(file.path.split("/")[0])
       )
         continue;
       await this.check(file.path);

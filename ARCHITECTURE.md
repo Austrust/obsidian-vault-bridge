@@ -1,4 +1,4 @@
-# Architecture · 0.7.5 · Windows workspace
+# Architecture · 0.7.7 · Windows workspace
 
 VaultBridge separates the Obsidian interface from agent execution and note mutations. The release remains a single `main.js`; development uses small CommonJS modules with no bundler dependencies.
 
@@ -28,6 +28,8 @@ A conversation reserves the workspace before asynchronous connection begins. Sto
 Note mutation guarantees remain in NoteEngine, independently of the UI or model. Reads return revisions; edits compare revisions and current editor/file content. Undo checks for subsequent user edits. New notes also persist a pending creation record before writing. User-triggered undo checks content and preserves the file in the reserved VaultBridge Recovery directory; failed or unconfirmed creations cannot be removed automatically.
 
 ## State compatibility
+
+0.7.7 validates Windows file components before vault/external access, rejecting alternate streams, device names and trailing-dot/space aliases. Recovery directory names are reserved without case sensitivity in read/write boundaries and external enumeration. Clipboard access remains explicitly user-triggered and write-only, with a host fallback and visible failure handling. All three process entry points explicitly disable shell interpretation; this is not an OS sandbox.
 
 `schemaVersion: 2` snapshots retain settings, journal, artifacts, transcript, session ID, user labels and session titles. Existing unversioned data is read without discarding those fields. Runtime connection flags and API keys are not persisted in plugin data. Explicit remembered credentials use the authenticated local OpenCode `/auth/{provider}` endpoint and its credential file; memory is cleared only after a successful acknowledgement. Legacy cached tool strings remain displayable.
 

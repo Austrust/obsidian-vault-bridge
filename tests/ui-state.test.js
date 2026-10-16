@@ -126,7 +126,7 @@ const obsidian = {
     }
   },
 };
-function load(name) {
+function load(name, electron) {
   const file = path.resolve(__dirname, "../src/ui/", name + ".js");
   const requireLocal = createRequire(file);
   const sandbox = {
@@ -150,9 +150,11 @@ function load(name) {
     sandbox.require = (id) =>
       id === "obsidian"
         ? obsidian
-        : ["./change-history", "./permission-modal"].includes(id)
-          ? {}
-          : requireLocal(id);
+        : id === "electron" && electron
+          ? electron
+          : ["./change-history", "./permission-modal"].includes(id)
+            ? {}
+            : requireLocal(id);
   vm.runInNewContext(fs.readFileSync(file, "utf8"), sandbox);
   return sandbox.module.exports;
 }
@@ -226,6 +228,32 @@ test("context status shows last request use and disables compression while busy 
   view.p.sessionId = null;
   view.renderStatus();
   assert.equal(view.compactButton.disabled, true);
+});
+
+test("copy uses only explicit text and reports clipboard failure without rejecting", async () => {
+  const written = [];
+  const clipboard = {
+    writeText: (text) => written.push(text),
+    readText: () => {
+      throw Error("must not read clipboard");
+    },
+  };
+  const DesktopView = load("chat-view", { clipboard }).AgentView;
+  assert.equal(
+    await DesktopView.prototype.copyText.call({}, "selected response"),
+    true,
+  );
+  assert.deepEqual(written, ["selected response"]);
+  const WebView = load("chat-view", {}).AgentView;
+  const host = {
+    contentEl: { ownerDocument: { defaultView: { navigator: { clipboard } } } },
+  };
+  assert.equal(await WebView.prototype.copyText.call(host, "code"), true);
+  clipboard.writeText = async () => {
+    throw Error("permission denied");
+  };
+  assert.equal(await WebView.prototype.copyText.call(host, "code"), false);
+  assert.equal(await WebView.prototype.copyText.call({}, "code"), false);
 });
 
 test("review filters preserve the native Modal keyboard scope", () => {

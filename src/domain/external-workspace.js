@@ -4,6 +4,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { GitHistory } = require("../backend/git-history");
 const { hash, replaceExact, vaultPath } = require("./note-engine");
+const { isRecoveryName } = require("./file-path");
 class ExternalWorkspace {
   constructor({
     root,
@@ -32,7 +33,7 @@ class ExternalWorkspace {
       for (const e of await fs.readdir(dir, { withFileTypes: true })) {
         if (
           e.name.startsWith(".") ||
-          e.name === "VaultBridge Recovery" ||
+          isRecoveryName(e.name) ||
           e.isSymbolicLink()
         )
           continue;
