@@ -1,6 +1,6 @@
 # VaultBridge 0.7.4
 
-Windows candidate for Obsidian 1.14.4+ and OpenCode 1.19.0.
+Windows release for Obsidian 1.14.4+ and OpenCode 1.19.0.
 
 - Connection settings now follow model changes made from the sidebar and block conflicting unsaved edits.
 - Whole-note and selection-only references are separate, with a content preview and independent removal.
@@ -12,4 +12,4 @@ Windows candidate for Obsidian 1.14.4+ and OpenCode 1.19.0.
 
 Install the three matching release files. Existing users must preserve their plugin directory, ID, data and runtime. The updater backs up old release files and restores them if installation fails.
 
-See [Windows setup](https://github.com/Austrust/obsidian-vault-bridge/blob/windows-readiness-0.7.3/docs/GETTING-STARTED-WINDOWS.md), [validation](https://github.com/Austrust/obsidian-vault-bridge/blob/windows-readiness-0.7.3/TEST_REPORT.md) and [issue resolution](https://github.com/Austrust/obsidian-vault-bridge/blob/windows-readiness-0.7.3/docs/ISSUE-STATUS.md). The release does not claim Linux or macOS acceptance or community-directory approval.
+See [Windows setup](https://github.com/Austrust/obsidian-vault-bridge/blob/main/docs/GETTING-STARTED-WINDOWS.md), [validation](https://github.com/Austrust/obsidian-vault-bridge/blob/main/TEST_REPORT.md) and [issue resolution](https://github.com/Austrust/obsidian-vault-bridge/blob/main/docs/ISSUE-STATUS.md). The release does not claim Linux or macOS acceptance or community-directory approval.

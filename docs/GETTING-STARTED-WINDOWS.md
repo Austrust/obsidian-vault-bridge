@@ -4,7 +4,7 @@
 
 ## 1. 安装插件
 
-从 VaultBridge 对应版本的 GitHub Release 下载 `main.js`、`manifest.json`、`styles.css`，放入笔记库的 `.obsidian/plugins/vault-bridge/`，然后在 Obsidian 的第三方插件设置中启用 VaultBridge。候选版本未公开 Release 时，可从候选分支取得同名的三个文件；不要从仍为旧版的 main 分支混用文件。
+从 [VaultBridge 0.7.4 Release](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.4) 下载 `main.js`、`manifest.json`、`styles.css`，放入笔记库的 `.obsidian/plugins/vault-bridge/`，然后在 Obsidian 的第三方插件设置中启用 VaultBridge。三个文件应来自同一版本；社区目录审核通过前请使用此手动安装方式。
 
 已有安装时，保留原目录和原插件 ID，包括旧版 `obsidian-agent-demo`。先备份三个发行文件，再更新；不要删除或覆盖 `data.json`、`runtime`、`journal-archive`。开发者可使用 `scripts/install.cjs` 完成带备份和失败恢复的原位更新。
 

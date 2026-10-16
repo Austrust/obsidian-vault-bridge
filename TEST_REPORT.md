@@ -1,6 +1,6 @@
 # 0.7.4 validation
 
-Validated on Windows with Obsidian 1.14.4, OpenCode 1.19.0 and Node 24.19.0 on 2026-10-16. This is a Windows release candidate. Public release and community-directory approval are separate from these checks.
+Validated on Windows with Obsidian 1.14.4, OpenCode 1.19.0 and Node 24.19.0 on 2026-10-16. Release 0.7.4 is publicly available and PR #1 is merged into main. Community-directory approval is separate from these checks.
 
 ## Automated checks
 

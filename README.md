@@ -1,8 +1,8 @@
 # VaultBridge
 
-An OpenCode-powered agent sidebar for Obsidian. Current Windows release candidate: **0.7.4**. A public release has not been published.
+An OpenCode-powered agent sidebar for Obsidian. **[Download Windows release 0.7.4](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.4)**. The release is available for manual installation; community-directory listing is a separate review process.
 
-The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) now includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. Windows build and release automation prepare a reviewable candidate; public distribution remains a separate step.
+The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. PR #1 is merged into `main`, and the 0.7.4 release files passed Windows CI.
 
 [中文使用说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md) · [Current validation](TEST_REPORT.md) · [Issue ledger](docs/ISSUE-STATUS.md) · [MIT license](LICENSE)
 
@@ -34,6 +34,16 @@ Both `vault-bridge` and the legacy `obsidian-agent-demo` are supported by the up
 
 Dataview with JavaScript queries is required only to run interactive cards. Git is optional and available under advanced settings for manual snapshots or old history.
 
+## Network, accounts and file access
+
+VaultBridge is free under the MIT license. Model requests require access to the configured provider; DeepSeek requires an account, API key and available API credit. Provider charges are separate from this plugin. There is no VaultBridge subscription or developer-operated inference service.
+
+When you send a prompt, a locally installed OpenCode 1.19.0 process communicates with the provider endpoint configured in settings (DeepSeek by default). Conversation text, attached notes or selections, selected Skills, external references and authorized tool results may be sent to that provider. Review its data-handling terms before sending private information. Removing a reference does not remove content already sent in a conversation. OpenCode is a separate application with its own configuration and network behavior; consult its [documentation](https://opencode.ai/docs/). Download links use official GitHub releases. VaultBridge includes no analytics or telemetry collection.
+
+The plugin reads explicitly chosen external folders to supply reference material and Skills. External writes require separate authorization and follow tool permissions and recovery logging. It also reads the selected OpenCode executable and local credential store outside the vault; remembered credentials are stored by OpenCode in its local credential file. The plugin starts its local tool bridge and OpenCode service on loopback with authentication. It does not automatically install or update itself or OpenCode; the optional installation script must be run manually.
+
+DataviewJS cards run only after a user clicks Run, can be inspected first and have Obsidian host privileges. Agent tool permissions do not sandbox card code.
+
 ## Develop and validate
 
 ```text
@@ -45,4 +55,4 @@ node scripts/package.cjs
 
 Run `node tests/integration.cjs` with `OPENCODE_BIN` pointing to the installed executable. It uses an independent sample and a local scripted model, without paid API requests. The opt-in `tests/live-provider.cjs` uses existing DeepSeek credentials and a paid request only when `VAULTBRIDGE_LIVE_TEST=1` is set. `node tests/ui/server.cjs` serves the real bundle in an Obsidian UI fixture at `http://127.0.0.1:41967/`.
 
-`dist/0.7.4/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release. Development history is based on the existing upstream repository; the Windows candidate is maintained on a separate branch. Runtime credentials, vault data, histories and caches must remain outside source control.
+`dist/0.7.4/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release for explicit publication. Development history and the released code are preserved on `main`. Runtime credentials, vault data, histories and caches must remain outside source control.
