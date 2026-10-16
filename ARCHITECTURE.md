@@ -1,4 +1,4 @@
-# Architecture · 0.7.7 · Windows workspace
+# Architecture · 0.7.8 · Windows workspace
 
 VaultBridge separates the Obsidian interface from agent execution and note mutations. The release remains a single `main.js`; development uses small CommonJS modules with no bundler dependencies.
 
@@ -101,3 +101,9 @@ scripts/install.cjs upgrades only the three release files, preserves the existin
 ## 0.7.3 native host acceptance
 
 Keyboard-triggered menus use the trigger button rectangle, including after asynchronous callbacks clear currentTarget. Pointer activation retains pointer positioning. PermissionModal sets its initial deny focus after the host Modal.open focus pass. ChangeHistory keeps filtering in filterScope, preserving Modal.scope for keyboard dispatch and Escape. Native CLI checks exercise real Obsidian Markdown, menus, settings windows and keyboard input; native-fixture.cjs replaces only the view host with an in-memory sample, and native-layout.cjs measures both themes and zoom levels. Production rendering and file mutations do not depend on these test helpers.
+
+## 0.7.8 runtime isolation and context controls
+
+`runtime-environment.js` gives the owned OpenCode process a stable `VaultBridge/AgentData` data root, separate from the desktop app and ordinary CLI. Credential diagnostics resolve the same root. Existing shared databases and credentials are preserved without automatic migration; users must re-enter provider credentials when first upgrading to isolated storage. Keeping the plugin ID and runtime working directory remains necessary, but does not migrate sessions from the former shared database.
+
+Model context/output limits come from OpenCode metadata, with optional overrides keyed by endpoint, provider and model. Unknown limits remain unknown. The context indicator uses the latest completed request rather than cumulative session tokens. Manual compaction reserves the conversation, pauses queued work and invokes OpenCode summarization with the selected model; cancellation and timeout release the reservation. The original transcript remains available, and token usage waits for the next completed reply after compaction.

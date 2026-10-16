@@ -1,4 +1,12 @@
-# 0.7.7 validation
+# 0.7.8 validation
+
+PR #2 (isolated OpenCode data) and PR #3 (model context controls) are merged into main. The integrated runtime passed 118 automated tests with zero failures or skips. Real OpenCode 1.19.0 integration passed with isolated samples and local scripted providers: the basic suite covers read/edit/create, cards, history, undo, credentials, restart, failure, timeout and stop; the context suite covers model-specific limits, token usage, manual compaction, retained history, follow-up, restart and model switching. No user notes or paid provider requests were used.
+
+The release changes version metadata and documentation after those integration runs. The bundle is generated with `node build.cjs`; Windows CI repeats build, syntax, unit tests and package verification and verifies provenance for all three attachments. The current release does not claim a new full native visual acceptance pass. The existing local plugin installation is preserved.
+
+See [0.7.8 release scope and upgrade notes](docs/RELEASE-0.7.8.md). Community review is tracked separately; a successful release pipeline does not establish directory approval.
+
+## 0.7.7 validation
 
 108 automated tests passed, zero failures or skips. New regressions check Windows alternate streams/device names/path aliases, recovery directory case variants, preservation of originals, ordinary external-file creation and clipboard success/failure with write-only mocks. The bundle was regenerated with `node build.cjs`; syntax and whitespace checks passed.
 
@@ -59,4 +67,4 @@ node scripts/package.cjs
 
 For integration, set `OPENCODE_BIN` to OpenCode 1.19.0 and run `node tests/integration.cjs`. `tests/live-provider.cjs` is explicitly gated by `VAULTBRIDGE_LIVE_TEST=1`, consumes a paid request and reads existing local DeepSeek credentials without printing them. Native helpers require the official host CLI and always need fixture/layout restoration by the caller. `tests/native-user-readiness.cjs` handles its own fixture cleanup.
 
-Raw logs, screenshots and machine-specific installation records stay under ignored `docs/local-validation/`; they are excluded from source control and release packages. Public results are summarized here and in the [issue ledger](docs/ISSUE-STATUS.md). The release workflow checks tag/manifest agreement and prepares a draft with the three release files plus hashes; draft preparation is not public publication.
+Raw logs, screenshots and machine-specific installation records stay under ignored `docs/local-validation/`; they are excluded from source control and release packages. Public results are summarized here and in the [issue ledger](docs/ISSUE-STATUS.md). The release workflow checks tag/manifest agreement and prepares a draft with the three release files, with hashes retained in CI artifacts; draft preparation is not public publication.
