@@ -1,0 +1,29 @@
+name: Windows validation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node build.cjs
+      - run: npm run check
+      - run: npm test
+      - name: Verify committed build
+        run: git diff --exit-code -- main.js
+      - name: Build release files
+        run: node scripts/package.cjs
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: vaultbridge-windows-candidate
+          path: dist/*/*
+          if-no-files-found: error

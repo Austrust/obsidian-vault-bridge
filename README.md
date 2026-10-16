@@ -1,86 +1,48 @@
 # VaultBridge
 
-**A free, open-source agent workspace for Obsidian, powered by OpenCode.**
+An OpenCode-powered agent sidebar for Obsidian. Current Windows release candidate: **0.7.4**. A public release has not been published.
 
-Bring your own API key. No subscriptions, Pro tiers, or feature gates in the plugin. Model providers may charge for API usage.
+The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) now includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. Windows build and release automation prepare a reviewable candidate; public distribution remains a separate step.
 
-[中文安装与使用说明](README.zh-CN.md) · [MIT license](LICENSE) · [Test report](TEST_REPORT.md)
-
-## What it does
-
-- Native sidebar chat with an OpenCode agent.
-- `@DeepSeek` assistant entry, note references, and editor selections as context.
-- Read, search, create, and edit Markdown notes through a local MCP bridge.
-- Revision checks to prevent stale edits from overwriting your changes, with a before/after record and conflict-aware undo.
-- `/visualize` generates interactive DataviewJS cards; run them in chat and save them as notes.
-- Selectable chat text and per-message Markdown copy controls.
-- Rendered Markdown with scrollable tables and preserved code indentation.
-- Codex-inspired conversation layout with a compact composer, theme-aware colors, and grouped execution records.
-- Collapsible model-provided reasoning, titled session history, cancellation, and a no-API interactive example.
-
-**Status:** early desktop preview, version 0.2.1. Backend tested on Linux with OpenCode 1.19.0; the new UI was checked in a browser fixture. Earlier versions were tested in Obsidian 1.14.4. Not yet listed in the Obsidian community plugin directory.
-
-## Install
-
-1. Install [OpenCode](https://opencode.ai). Confirm its executable runs independently.
-2. Download or clone this repository. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/vault-bridge/`.
-3. Reload Obsidian and enable **VaultBridge** in Community plugins.
-4. For interactive cards, install [Dataview](https://github.com/blacksmithgu/obsidian-dataview) and enable **JavaScript Queries**.
-5. In VaultBridge settings, enter the absolute path to your OpenCode executable, provider, model, and API base URL. Defaults are `deepseek`, `deepseek-flash`, and `https://api.deepseek.com/v1`.
-6. Enter your API key for the current Obsidian session, or reuse credentials configured through OpenCode. Open the robot icon in the ribbon; the sidebar connects automatically. Disable **自动连接** in settings to connect manually.
-
-The UI currently uses Chinese labels. Click **更多选项** → **体验交互卡片** → **运行** to try a card without an API key.
-
-If you used the earlier local Demo (`obsidian-agent-demo`), disable it before enabling VaultBridge. This first public version uses a new plugin ID and does not automatically migrate old settings or chat history.
-
-Opening or restoring the sidebar starts the local service without sending a model request. Manually disconnecting pauses automatic connection until you reconnect or reload the plugin.
+[中文使用说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md) · [Current validation](TEST_REPORT.md) · [Issue ledger](docs/ISSUE-STATUS.md) · [MIT license](LICENSE)
 
 ## Use
 
+- Use **+** to attach a whole note, only the selected text, external text or a Skill. Click a reference chip to preview its scope. Selection-only attachment does not include unselected text from that note. Type `@` at the caret to search notes; `/` lists available commands.
+- Each conversation keeps its own draft and references. Enter sends; Shift+Enter adds a line; IME composition does not send.
+- **执行** performs authorized operations. **规划** allows read-only analysis. Select a model from the composer; provider and endpoint are configured in settings.
+- Edit a user message inline, then confirm to create a branch and send. Cancelling leaves the original conversation intact. Branching does not revert files.
+- Active requests show progress and elapsed time. Additional prompts enter the queue; errors pause it. Stop fences subsequent tool writes.
+- Review changes from each turn or the session summary. **最近操作与撤销** previews and reverses recent Agent operations without Git or a whole-vault scan. Later manual edits cause a conflict instead of being overwritten.
+- Permission requests show their target, text changes and expiry inside the conversation. They authorize one request and expire after two minutes.
+- `/visualize` creates a DataviewJS card. Run it explicitly; save it once and reopen the saved note. DataviewJS has Obsidian privileges and is not sandboxed.
+
+## Install and upgrade
+
+Desktop validation baseline: Windows, Obsidian **1.14.4**, OpenCode **1.19.0**, Node **20+** for development. Other operating systems and versions are outside the current acceptance scope.
+
+Follow the [Windows first-use guide](docs/GETTING-STARTED-WINDOWS.md) to install the three plugin files and the pinned OpenCode 1.19.0 binary. Settings include download links, executable selection and automatic detection, including common npm installations. Node is only needed for development. **应用并测试本地连接** verifies the local service; provider authentication is checked on the first prompt. API keys may remain session-only or be explicitly saved through OpenCode for reuse after restart. Saved keys live in OpenCode's local credential file, not vault data; this is not an OS-encrypted credential store.
+
+For an existing installation, preserve its directory, ID, `data.json` and runtime:
+
 ```text
-@DeepSeek Rewrite the goal in the current note while preserving its headings.
-/visualize Create an interactive progress panel from the referenced note.
-```
-
-Use the `@` picker to attach notes. Attach a selection with the paperclip button (**附加当前笔记或选区**). Send with Enter; use Shift+Enter for a newline. IME composition does not send. `@DeepSeek` is an entry label; the actual provider and model come from settings. Mentions written in a note do not execute automatically.
-
-Cards have controls to inspect their source, run, save to a new note, and request a revised version. The plugin also registers Obsidian commands for opening the sidebar, attaching a note/selection, and starting a visualization.
-
-## Architecture and data
-
-```text
-Obsidian sidebar → local OpenCode HTTP service → your model provider
-                         ↓ MCP tool calls
-                 Obsidian note bridge
-                 ├─ revision-checked edits
-                 └─ DataviewJS cards → Markdown artifacts
-```
-
-VaultBridge starts and stops its own local OpenCode process. Its agent is allowed to use six note tools; native shell and file-writing tools are denied. Notes are accessed through the bridge rather than by setting OpenCode's working directory to the vault root.
-
-The plugin does not persist the session-only API key in its settings. OpenCode manages its own saved provider credentials. Chat, card source, and edit records are stored in plugin data; OpenCode stores session history. Referenced or tool-read note content is sent to the configured model provider.
-
-**DataviewJS is not sandboxed.** A card's JavaScript runs with Obsidian privileges. Source inspection and an explicit Run button are provided, but model instructions are not a security boundary. Saved DataviewJS blocks follow Dataview's execution settings.
-
-## Development
-
-No third-party npm packages are required to build or run the unit tests. Node.js 20+ is needed for development; installed plugins use Obsidian's runtime.
-
-```sh
 node build.cjs
-node --check main.js
-node --test tests/*.test.js
-OPENCODE_BIN=/absolute/path/to/opencode node tests/integration.cjs
+node scripts/install.cjs "<existing-plugin-directory>" "<backup-directory-outside-plugin>"
 ```
 
-`src/ui/` owns the interface; `src/backend/` owns process lifecycle, conversations, and tools; `src/domain/` owns note edits and persisted state. `src/plugin.js` wires them to Obsidian. `core.js` remains a compatibility export. `build.cjs` bundles local modules into the standalone `main.js`. See [architecture and extension points](ARCHITECTURE.md).
+Both `vault-bridge` and the legacy `obsidian-agent-demo` are supported by the updater. It backs up and replaces only the three release files. Reload the plugin after upgrading. Never copy one installation's data or runtime into another ID as an implicit migration.
 
-The integration test uses real OpenCode with a local scripted model server. It does not contact a paid model API. Real DeepSeek Flash tool calling was also checked separately against a virtual test note.
+Dataview with JavaScript queries is required only to run interactive cards. Git is optional and available under advanced settings for manual snapshots or old history.
 
-## Current limits
+## Develop and validate
 
-Desktop only; Linux is the tested platform. No multi-assistant routing, JavaScript sandbox, large-vault search index, persistent widget state, or automatic edit-history pruning yet. Undo covers edits, not newly created notes. Message updates are polled and each turn has a three-minute timeout.
+```text
+node build.cjs
+node --test tests/*.test.js
+node --check main.js
+node scripts/package.cjs
+```
 
-## License
+Run `node tests/integration.cjs` with `OPENCODE_BIN` pointing to the installed executable. It uses an independent sample and a local scripted model, without paid API requests. The opt-in `tests/live-provider.cjs` uses existing DeepSeek credentials and a paid request only when `VAULTBRIDGE_LIVE_TEST=1` is set. `node tests/ui/server.cjs` serves the real bundle in an Obsidian UI fixture at `http://127.0.0.1:41967/`.
 
-MIT. OpenCode and Dataview are separately installed dependencies with their own licenses. Neither dependency's source code or binary is bundled here.
+`dist/0.7.4/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release. Development history is based on the existing upstream repository; the Windows candidate is maintained on a separate branch. Runtime credentials, vault data, histories and caches must remain outside source control.

@@ -1,11 +1,19 @@
 node_modules/
-.env
-.env.*
-!.env.example
-auth.json
+dist/
 data.json
 runtime/
-.obsidian/
+history.git/
+external-history/
+journal-archive/
 *.log
-.DS_Store
-*.zip
+.env
+.env.*
+*.key
+
+# Local audit archive: may contain machine paths or private UI captures.
+docs/local-validation/
+docs/PROJECT-HISTORY-README.md
+docs/HISTORICAL-TEST-REPORT.md
+docs/AGENT-WORKSPACE-0.6.md
+docs/HARDENING-0.5.md
+docs/release-readiness-2026-10-16/
