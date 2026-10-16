@@ -4,6 +4,8 @@ on:
     tags: ['0.*']
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 jobs:
   draft:
     runs-on: windows-latest
@@ -23,10 +25,26 @@ jobs:
       - run: npm test
       - run: git diff --exit-code -- main.js
       - run: node scripts/package.cjs
+      - name: Attest plugin release files
+        uses: actions/attest@v4.2.2
+        with:
+          subject-path: |
+            dist/${{ github.ref_name }}/main.js
+            dist/${{ github.ref_name }}/manifest.json
+            dist/${{ github.ref_name }}/styles.css
+      - name: Verify build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          foreach ($releaseFile in @('main.js', 'manifest.json', 'styles.css')) {
+            gh attestation verify "dist/$env:GITHUB_REF_NAME/$releaseFile" --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw "Attestation verification failed: $releaseFile" }
+          }
       - name: Prepare reviewable release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           $releaseVersion = $env:GITHUB_REF_NAME
-          gh release create $releaseVersion "dist/$releaseVersion/main.js" "dist/$releaseVersion/manifest.json" "dist/$releaseVersion/styles.css" "dist/$releaseVersion/checksums.json" --verify-tag --draft --title "VaultBridge Agent $releaseVersion" --notes-file "docs/RELEASE-$releaseVersion.md"
+          gh release create $releaseVersion "dist/$releaseVersion/main.js" "dist/$releaseVersion/manifest.json" "dist/$releaseVersion/styles.css" --verify-tag --draft --title "VaultBridge Agent $releaseVersion" --notes-file "docs/RELEASE-$releaseVersion.md"

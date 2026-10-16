@@ -1,4 +1,8 @@
-# 0.7.5 validation
+# 0.7.6 validation
+
+0.7.6 changes release metadata, the release workflow and README disclosures in response to the community review. `main.js` and `styles.css` are byte-identical to 0.7.5. The release workflow builds and tests before generating and verifying GitHub provenance attestations. Only the three supported Obsidian files are attached to the Release; checksums remain in the CI artifact and local package.
+
+## 0.7.5 acceptance record
 
 Version 0.7.5 changes the public ID to `vaultbridge-agent` and display name to VaultBridge Agent after the directory rejected the conflicting `vault-bridge` ID. No backend behavior or data migration is changed.
 
