@@ -1,7 +1,7 @@
 {
   "id": "vault-bridge",
   "name": "VaultBridge",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "minAppVersion": "1.14.4",
   "description": "An open-source agent workspace for your vault, powered by OpenCode. Chat, edit notes, and create DataviewJS cards.",
   "author": "Austrust",

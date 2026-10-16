@@ -22,6 +22,8 @@ class WorkspacePanel extends Modal {
     this.p = p;
     this.tab = "资料";
     this.generation = 0;
+    this.resourceDraft = "";
+    this.skillDraft = p.settings.skillFolder || "";
   }
   onOpen() {
     this.render();
@@ -65,8 +67,16 @@ class WorkspacePanel extends Modal {
         "aria-label": "外部目录路径",
       },
     });
-    const add = c.createEl("button", { text: "添加只读目录" });
-    const choose = c.createEl("button", { text: "选择文件夹…" });
+    const resourceActions = c.createDiv("vb-panel-actions vb-actions-start");
+    const add = resourceActions.createEl("button", {
+      text: "添加只读目录",
+      cls: "mod-cta",
+    });
+    input.value = this.resourceDraft;
+    input.oninput = () => {
+      this.resourceDraft = input.value;
+    };
+    const choose = resourceActions.createEl("button", { text: "选择文件夹…" });
     choose.onclick = async () => {
       try {
         const electron = require("electron");
@@ -80,7 +90,7 @@ class WorkspacePanel extends Modal {
           properties: ["openDirectory"],
         });
         if (!result.canceled && result.filePaths[0])
-          input.value = result.filePaths[0];
+          input.value = this.resourceDraft = result.filePaths[0];
       } catch (e) {
         new Notice(e.message);
       }
@@ -92,6 +102,7 @@ class WorkspacePanel extends Modal {
         this.p.settings.externalFolders = [
           ...new Set([...(this.p.settings.externalFolders || []), root]),
         ];
+        this.resourceDraft = "";
       });
     for (const r of this.p.resources.roots()) {
       const row = c.createDiv("vb-resource-row");
@@ -138,11 +149,12 @@ class WorkspacePanel extends Modal {
           }),
         ),
       );
-    const recovery = c.createEl("button", {
+    const historyActions = c.createDiv("vb-panel-actions vb-actions-start");
+    const recovery = historyActions.createEl("button", {
       text: "最近操作与撤销（含外部文件）",
     });
     recovery.onclick = () => this.p.openUndoHistory();
-    const history = c.createEl("button", {
+    const history = historyActions.createEl("button", {
       text: "外部目录手动 Git 快照（可选）",
     });
     history.onclick = () => {
@@ -154,16 +166,17 @@ class WorkspacePanel extends Modal {
     };
     c = panels["Skills"];
     c.createEl("h3", { text: "Skill 仓库" });
-    new Setting(c)
+    const skillSetting = new Setting(c)
       .setName("本地仓库路径")
       .setDesc(
         "支持仓库根目录的 SKILL.md，以及一级子目录中的 SKILL.md。选择 Skill 才会将说明加入模型上下文；不会自动执行脚本。",
       )
-      .addText((t) =>
-        t.setValue(this.p.settings.skillFolder || "").onChange((v) => {
+      .addText((t) => {
+        t.inputEl.setAttribute("aria-label", "Skill 仓库路径");
+        t.setValue(this.skillDraft).onChange((v) => {
           this.skillDraft = v;
-        }),
-      )
+        });
+      })
       .addButton((b) =>
         b.setButtonText("保存").onClick(() =>
           this.save(async () => {
@@ -177,10 +190,12 @@ class WorkspacePanel extends Modal {
                 await this.p.resources.resolve(root),
               );
             this.p.settings.skillFolder = root;
+            this.skillDraft = root;
             this.p.selectedSkills.clear();
           }),
         ),
       );
+    skillSetting.settingEl.addClass("vb-form-field");
     const use = c.createEl("button", { text: "选择 Skill" });
     use.onclick = () => this.p.pickSkill().catch((e) => new Notice(e.message));
     this.files = panels["资料"].createDiv("vb-resource-files");

@@ -1,0 +1,32 @@
+name: Prepare draft release
+on:
+  push:
+    tags: ['0.*']
+permissions:
+  contents: write
+jobs:
+  draft:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Check tag and manifest agree
+        shell: pwsh
+        run: |
+          $manifestVersion = (Get-Content manifest.json | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne $manifestVersion) { throw 'Tag must exactly match manifest.version' }
+      - run: node build.cjs
+      - run: npm run check
+      - run: npm test
+      - run: git diff --exit-code -- main.js
+      - run: node scripts/package.cjs
+      - name: Prepare reviewable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $releaseVersion = $env:GITHUB_REF_NAME
+          gh release create $releaseVersion "dist/$releaseVersion/main.js" "dist/$releaseVersion/manifest.json" "dist/$releaseVersion/styles.css" "dist/$releaseVersion/checksums.json" --verify-tag --draft --title "VaultBridge $releaseVersion" --notes-file "docs/RELEASE-$releaseVersion.md"

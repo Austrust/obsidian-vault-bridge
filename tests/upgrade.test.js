@@ -67,3 +67,48 @@ test("upgrade preserves both supported plugin IDs, user data and runtime history
     "styles.css",
   ]);
 });
+
+test("failed upgrade restores every old release file and retains user data", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "vb-upgrade-failure-"));
+  t.after(async () => {
+    if (
+      !path
+        .resolve(root)
+        .startsWith(
+          path.resolve(os.tmpdir()) + path.sep + "vb-upgrade-failure-",
+        )
+    )
+      throw Error("unsafe cleanup");
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const target = path.join(root, "vault-bridge");
+  await fs.mkdir(target);
+  const originals = {
+    "manifest.json": JSON.stringify({ id: "vault-bridge", version: "0.1.0" }),
+    "main.js": "old-main",
+    "styles.css": "old-css",
+    "data.json": '{"retained":true}',
+  };
+  for (const [file, text] of Object.entries(originals))
+    await fs.writeFile(path.join(target, file), text);
+  const originalWrite = fs.writeFile;
+  const resolvedTarget = await fs.realpath(target);
+  let failed = false;
+  fs.writeFile = async (file, ...args) => {
+    if (file === path.join(resolvedTarget, "styles.css") && !failed) {
+      failed = true;
+      throw Error("simulated disk failure");
+    }
+    return originalWrite(file, ...args);
+  };
+  try {
+    await assert.rejects(
+      install(target, path.join(root, "backups")),
+      /simulated disk failure/,
+    );
+  } finally {
+    fs.writeFile = originalWrite;
+  }
+  for (const [file, text] of Object.entries(originals))
+    assert.equal(await fs.readFile(path.join(target, file), "utf8"), text);
+});

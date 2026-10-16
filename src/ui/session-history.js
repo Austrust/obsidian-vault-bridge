@@ -23,7 +23,8 @@ class SessionHistory extends Modal {
       this.limit = 20;
       this.render();
     };
-    const toggle = c.createEl("button", { text: "查看已归档" });
+    const actions = c.createDiv("vb-panel-actions vb-actions-start");
+    const toggle = actions.createEl("button", { text: "查看已归档" });
     toggle.onclick = () => {
       this.archived = !this.archived;
       this.limit = 20;

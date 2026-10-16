@@ -1,4 +1,4 @@
-# Architecture · 0.7.3 · Windows workspace
+# Architecture · 0.7.4 · Windows workspace
 
 VaultBridge separates the Obsidian interface from agent execution and note mutations. The release remains a single `main.js`; development uses small CommonJS modules with no bundler dependencies.
 
@@ -29,7 +29,9 @@ Note mutation guarantees remain in NoteEngine, independently of the UI or model.
 
 ## State compatibility
 
-`schemaVersion: 2` snapshots retain settings, journal, artifacts, transcript, session ID, user labels and session titles. Existing unversioned data is read without discarding those fields. Runtime connection flags and the session-only API key are not persisted. Legacy cached tool strings remain displayable.
+`schemaVersion: 2` snapshots retain settings, journal, artifacts, transcript, session ID, user labels and session titles. Existing unversioned data is read without discarding those fields. Runtime connection flags and API keys are not persisted in plugin data. Explicit remembered credentials use the authenticated local OpenCode `/auth/{provider}` endpoint and its credential file; memory is cleared only after a successful acknowledgement. Legacy cached tool strings remain displayable.
+
+Connection drafts reconcile each field against a baseline and the live settings. Untouched fields follow external changes; conflicting edits block submission until the current configuration is loaded. Resource and Skill forms render and submit the same panel-local draft. Selection-only attachments remove the same note from whole-file references and retain a selected-text snapshot; reference previews make that scope visible.
 
 Keep the same plugin ID and runtime directory when upgrading in place. Changing from the original `obsidian-agent-demo` ID to `vault-bridge` is a separate migration: OpenCode session lookup depends on its working directory. Do not silently move it during a UI update.
 

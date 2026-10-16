@@ -61,12 +61,30 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
   };
   let modelStep = 0;
   let revision = "";
+  let failureMode = "";
+  let providerReached;
   const received = [];
   const provider = http.createServer(async (req, res) => {
     try {
       let b = "";
       for await (const c of req) b += c;
       const body = JSON.parse(b);
+      if (failureMode) {
+        providerReached?.();
+        if (failureMode === "auth") {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: {
+                message: "synthetic authentication failure",
+                type: "authentication_error",
+              },
+            }),
+          );
+        } else if (failureMode === "offline") req.destroy();
+        // The delay case intentionally leaves the response pending until abort.
+        return;
+      }
       received.push({
         port: req.socket.localPort,
         authorization: req.headers.authorization,
@@ -307,10 +325,20 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
     );
     const credentials = path.join(root, "data", "opencode");
     await fs.mkdir(credentials, { recursive: true });
-    await fs.writeFile(
-      path.join(credentials, "auth.json"),
-      JSON.stringify({ demo: { type: "api", key: "saved-test-credential" } }),
+    // Exercise the same authenticated local API used by "remember on this device".
+    const authClient = await runtime.connect();
+    assert.equal(
+      await authClient.request("/auth/demo", "PUT", {
+        type: "api",
+        key: "saved-test-credential",
+      }),
+      true,
     );
+    const savedAuth = JSON.parse(
+      await fs.readFile(path.join(credentials, "auth.json"), "utf8"),
+    );
+    assert.equal(savedAuth.demo.key, "saved-test-credential");
+    await runtime.disconnect();
     runtime.apiKey = () => "";
     settings.baseURL = `http://127.0.0.1:${alternateProvider.address().port}/v1`;
     settings.model = "changed-model";
@@ -331,6 +359,44 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
     console.log(
       "PASS saved credential mode uses the changed API endpoint and model; /provider includes the configured model",
     );
+    failureMode = "auth";
+    await assert.rejects(service.send("synthetic authentication failure"));
+    assert.equal(store.state.running, false);
+    assert.equal(store.state.status, "需要处理");
+    console.log("PASS real runtime propagates provider authentication failure");
+    failureMode = "offline";
+    service.timeoutMs = 1200;
+    await assert.rejects(service.send("synthetic network disconnect"));
+    assert.equal(store.state.running, false);
+    console.log("PASS network failure is bounded and releases the run");
+    failureMode = "delay";
+    await assert.rejects(service.send("synthetic response timeout"), /超时/);
+    assert.equal(store.state.running, false);
+    service.timeoutMs = 60000;
+    const reached = new Promise((resolve) => {
+      providerReached = resolve;
+    });
+    const pending = service.send("synthetic stop while waiting");
+    let waitTimer;
+    try {
+      await Promise.race([
+        reached,
+        new Promise((_, reject) => {
+          waitTimer = setTimeout(
+            () => reject(Error("provider was not reached")),
+            20000,
+          );
+        }),
+      ]);
+      await service.stop();
+      await pending;
+      assert.equal(store.state.status, "已停止");
+      assert.equal(store.state.running, false);
+    } finally {
+      clearTimeout(waitTimer);
+      await pending.catch(() => {});
+    }
+    console.log("PASS timeout and explicit stop through the real runtime");
   } finally {
     await runtime.disconnect();
     provider.closeAllConnections();

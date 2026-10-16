@@ -393,11 +393,28 @@ class NoteAgent extends Plugin {
           throw error;
         }
         this.catalog = [];
-        if (options.connect !== false) {
+        if (options.connect !== false || options.rememberKey) {
           const client = await this.connect();
+          if (options.rememberKey && this.apiKey) {
+            let saved;
+            try {
+              saved = await client.request(
+                "/auth/" + encodeURIComponent(this.settings.provider),
+                "PUT",
+                { type: "api", key: this.apiKey },
+              );
+            } catch {
+              throw Error(
+                "本机凭据保存失败，Key 仍仅在本次运行可用。请检查 OpenCode 后重试。",
+              );
+            }
+            if (saved !== true) throw Error("OpenCode 未确认凭据保存，请重试");
+            this.apiKey = "";
+          }
           const data = await client.request("/provider");
           this.catalog = modelCatalog(data, this.settings.provider);
           this.status = "本地连接已验证";
+          if (options.connect === false) await this.backend.disconnect();
         } else this.status = "连接设置已保存";
         return this.catalog;
       })
@@ -468,16 +485,27 @@ class NoteAgent extends Plugin {
         }
       : null;
   }
-  attachActive() {
+  attachActive(scope = "auto") {
     const a = this.active();
     if (!a) {
       new Notice("请先打开一篇 Markdown 笔记");
       return;
     }
-    this.mentions.add(a.path);
-    this.selection = a.selection
-      ? { path: a.path, text: a.selection, revision: hash(a.text) }
-      : null;
+    if (scope === "selection" && !a.selection) {
+      new Notice("请先在笔记中选中要引用的文字");
+      return;
+    }
+    if (scope !== "note" && a.selection) {
+      this.mentions.delete(a.path);
+      this.selection = {
+        path: a.path,
+        text: a.selection,
+        revision: hash(a.text),
+      };
+    } else {
+      this.mentions.add(a.path);
+      if (this.selection?.path === a.path) this.selection = null;
+    }
     this.refresh();
     void this.persist().catch((e) => this.fail(e));
   }
@@ -1119,6 +1147,7 @@ const {
   Notice,
   setIcon,
   Menu,
+  Modal,
 } = require("obsidian");
 const { shouldSend, conversationItems } = __load(4);
 const { turnSummaries } = __load(5);
@@ -1127,6 +1156,30 @@ const { ComposerPicker } = __load(8);
 const { showMenuAtTrigger } = __load(9);
 const { renderPermission, PermissionModal } = __load(10);
 const VIEW = "note-agent-opencode";
+class ReferencePreview extends Modal {
+  constructor(app, title, read, hint) {
+    super(app);
+    Object.assign(this, { title, read, hint });
+  }
+  onOpen() {
+    this.contentEl.addClass("vb-surface", "vb-reference-preview");
+    this.contentEl.createEl("h2", { text: this.title });
+    this.contentEl.createEl("p", { text: this.hint });
+    const content = this.contentEl.createEl("pre", { text: "正在读取…" });
+    Promise.resolve()
+      .then(this.read)
+      .then((text) => {
+        if (!this.closed) content.textContent = text;
+      })
+      .catch((error) => {
+        if (!this.closed) content.textContent = error.message;
+      });
+  }
+  onClose() {
+    this.closed = true;
+    this.contentEl.empty();
+  }
+}
 class MentionModal extends FuzzySuggestModal {
   constructor(app, choose) {
     super(app);
@@ -1255,7 +1308,7 @@ class AgentView extends ItemView {
         suggestions,
         "",
         () => {
-          this.p.attachActive();
+          this.p.attachActive("note");
           this.input.value = prompt;
           this.p.draft = prompt;
           void this.p.persist().catch((e) => this.p.fail(e));
@@ -1451,7 +1504,12 @@ class AgentView extends ItemView {
     this.showMenu(event, [
       [
         ["引用笔记", "at-sign", () => this.pickMention()],
-        ["附加当前笔记或选区", "paperclip", () => this.p.attachActive()],
+        ["引用整篇当前笔记", "file-text", () => this.p.attachActive("note")],
+        [
+          "仅引用当前选区",
+          "text-select",
+          () => this.p.attachActive("selection"),
+        ],
         ["外部资料", "folder-open", () => this.p.openResources()],
         ["选择 Skill", "sparkles", () => this.p.pickSkill()],
       ],
@@ -1733,21 +1791,31 @@ class AgentView extends ItemView {
     this.contextSignature = signature;
     this.context.empty();
     for (const path of this.p.mentions) {
+      const group = this.context.createSpan("vb-reference-chip");
       const chip = this.button(
-        this.context,
-        "",
+        group,
+        "全文 · " + path.split("/").pop(),
+        () =>
+          new ReferencePreview(
+            this.app,
+            path,
+            async () => (await this.p.engine.read(path)).text,
+            "整篇笔记引用。发送时会重新读取当时的全文。",
+          ).open(),
+        "vb-context-chip",
+      );
+      chip.setAttribute("title", path + " · 查看全文引用");
+      this.iconButton(
+        group,
+        "移除全文引用：" + path,
+        "x",
         () => {
           this.p.mentions.delete(path);
-          if (this.p.selection?.path === path) this.p.selection = null;
           this.renderContext();
           void this.p.persist().catch((e) => this.p.fail(e));
         },
-        "vb-context-chip",
+        "vb-reference-remove",
       );
-      chip.setAttribute("title", path + " · 点击移除");
-      setIcon(chip.createSpan(), "file-text");
-      chip.createSpan({ text: path.split("/").pop() });
-      setIcon(chip.createSpan(), "x");
     }
     for (const id of this.p.selectedSkills || [])
       this.button(
@@ -1773,8 +1841,33 @@ class AgentView extends ItemView {
         },
         "vb-context-chip",
       );
-    if (this.p.selection)
-      this.context.createSpan({ text: "已附加选区", cls: "vb-selection-chip" });
+    if (this.p.selection) {
+      const selection = this.p.selection;
+      const group = this.context.createSpan("vb-reference-chip");
+      this.button(
+        group,
+        "仅选区 · " + selection.text.length + " 字符",
+        () =>
+          new ReferencePreview(
+            this.app,
+            selection.path,
+            () => selection.text,
+            "只附加以下选中文字的快照，不自动附加整篇笔记。Agent 的后续读取仍受工具权限控制。",
+          ).open(),
+        "vb-context-chip",
+      );
+      this.iconButton(
+        group,
+        "移除选区引用",
+        "x",
+        () => {
+          this.p.selection = null;
+          this.renderContext();
+          return this.p.persist();
+        },
+        "vb-reference-remove",
+      );
+    }
   }
   fitStatusBar() {
     const root = this.contentEl;
@@ -2231,6 +2324,13 @@ class AgentView extends ItemView {
     const record = { el, body, component };
     this.cards.set(a.id, record);
     const status = el.createDiv({ cls: "na-muted", text: "待运行" });
+    el.createEl("p", {
+      cls: "vb-card-permissions",
+      text: "此卡片运行 DataviewJS，具有 Obsidian 的执行权限，不受 Agent 工具权限限制。运行前可展开检查代码。",
+    });
+    const source = el.createEl("details", { cls: "vb-card-source" });
+    source.createEl("summary", { text: "查看卡片代码" });
+    source.createEl("pre", { text: a.code });
     const run = this.button(controls, "运行", async () => {
       run.disabled = true;
       status.textContent = "正在运行…";
@@ -3589,8 +3689,12 @@ const { PluginSettingTab, Setting, Notice } = require("obsidian");
 const {
   detectExecutable,
   credentialStatus,
+  version,
 } = __load(16);
-const { connectionErrors } = __load(17);
+const {
+  connectionErrors,
+  reconcileDraft,
+} = __load(17);
 const {
   permissionDefaults,
   permissionLabels,
@@ -3653,6 +3757,13 @@ class Settings extends PluginSettingTab {
     this.connectionDraft ||= Object.fromEntries(
       connectionKeys.map((k) => [k, this.p.settings[k] || ""]),
     );
+    this.connectionBaseline ||= { ...this.connectionDraft };
+    reconcileDraft(
+      this.connectionDraft,
+      this.connectionBaseline,
+      this.p.settings,
+      connectionKeys,
+    );
     this.keyDraft ??= this.p.apiKey || "";
     const draft = this.connectionDraft;
     const generation = this.generation;
@@ -3660,11 +3771,12 @@ class Settings extends PluginSettingTab {
     const fields = new Map();
     const status = c.createDiv({
       cls: "vb-setup-diagnostics",
-      text: "依次检查安装、供应商和凭据，再应用设置并测试本地连接。已验证 Windows / OpenCode 1.19.0。",
+      text: "选择供应商并填写 API Key，即可连接。本版使用 OpenCode 1.19.0。",
     });
     status.setAttribute("role", "status");
     const text = (parent, key, label) => {
       const setting = new Setting(parent).setName(label);
+      setting.settingEl.addClass("vb-form-field");
       setting.addText((t) => {
         t.inputEl.setAttribute("aria-label", label);
         t.setValue(draft[key]);
@@ -3681,9 +3793,84 @@ class Settings extends PluginSettingTab {
       error.setAttribute("role", "status");
       fields.set(key + "-error", error);
     };
-    c.createEl("h3", { text: "1 · 检测安装" });
-    text(c, "executable", "OpenCode 可执行文件");
-    const detect = c.createEl("button", { text: "自动检测安装" });
+    const advanced = c.createEl("details", { cls: "vb-connection-advanced" });
+    advanced.open =
+      draft.provider !== "deepseek" || draft.executable === "opencode";
+    advanced.createEl("summary", { text: "安装与高级连接配置" });
+    const guide = advanced.createEl("details", { cls: "vb-install-guide" });
+    guide.open = draft.executable === "opencode";
+    guide.createEl("summary", { text: "首次使用：安装 OpenCode 1.19.0" });
+    const steps = guide.createEl("ol");
+    const download = steps.createEl("li", {
+      text: "下载与你的 Windows 设备对应的压缩包：",
+    });
+    for (const [label, arch] of [
+      ["Windows x64（多数电脑）", "x64"],
+      ["Windows ARM64", "arm64"],
+    ]) {
+      download.createEl("a", {
+        text: label,
+        attr: {
+          href:
+            "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-windows-" +
+            arch +
+            ".zip",
+          target: "_blank",
+          rel: "noopener",
+        },
+      });
+    }
+    steps.createEl("li", {
+      text: "解压到固定目录（不要放在临时目录），然后点击下方“选择可执行文件”，选中解压出的 opencode.exe。无需安装 Node.js。",
+    });
+    steps.createEl("li", {
+      text: "填写 Key，选择是否保存在本机，再点击“应用并测试本地连接”。回到侧栏发送“你好”验证模型回复。",
+    });
+    guide.createEl("p", {
+      text: "下载失败时可稍后重试；不要以任意最新版替代 1.19.0。已安装 npm 版本可用自动检测。",
+    });
+    const runtimeActions = advanced.createDiv(
+      "vb-panel-actions vb-actions-start",
+    );
+    const detect = runtimeActions.createEl("button", { text: "自动检测安装" });
+    const choose = runtimeActions.createEl("button", {
+      text: "选择可执行文件",
+    });
+    text(advanced, "executable", "OpenCode 可执行文件");
+    choose.onclick = async () => {
+      try {
+        this.p.conversations.idle();
+        const electron = require("electron");
+        const dialog = electron.remote?.dialog || electron.dialog;
+        if (!dialog) {
+          advanced.open = true;
+          fields.get("executable").focus();
+          return;
+        }
+        const selected = await dialog.showOpenDialog({
+          properties: ["openFile"],
+          filters: [{ name: "OpenCode", extensions: ["exe"] }],
+        });
+        if (
+          generation !== this.generation ||
+          selected.canceled ||
+          !selected.filePaths[0]
+        )
+          return;
+        const executable = selected.filePaths[0];
+        const detected = await version(executable);
+        if (generation !== this.generation) return;
+        if (detected !== "1.19.0")
+          throw Error("需要 OpenCode 1.19.0；所选文件版本为 " + detected);
+        draft.executable = executable;
+        fields.get("executable").value = executable;
+        status.textContent = "OpenCode 1.19.0 已就绪。继续填写供应商和凭据。";
+        guide.open = false;
+        validate();
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    };
     detect.disabled = busy;
     detect.onclick = async () => {
       this.detecting = true;
@@ -3704,12 +3891,12 @@ class Settings extends PluginSettingTab {
         validate();
       } catch (e) {
         status.textContent = e.message;
+        guide.open = true;
       } finally {
         this.detecting = false;
         validate();
       }
     };
-    c.createEl("h3", { text: "2 · 配置供应商与模型" });
     new Setting(c).setName("供应商模板").addDropdown((d) =>
       d
         .addOptions({
@@ -3721,11 +3908,14 @@ class Settings extends PluginSettingTab {
           if (value === "deepseek") {
             draft.provider = "deepseek";
             draft.baseURL = "https://api.deepseek.com/v1";
+            draft.model = "deepseek-flash";
           } else {
             draft.provider = "custom";
             draft.baseURL = "";
+            draft.model = "";
+            advanced.open = true;
           }
-          for (const k of ["provider", "baseURL"])
+          for (const k of ["provider", "baseURL", "model"])
             fields.get(k).value = draft[k];
           refreshCredential();
           showModels(
@@ -3734,10 +3924,12 @@ class Settings extends PluginSettingTab {
           validate();
         }),
     );
-    text(c, "provider", "供应商 ID");
-    text(c, "baseURL", "API Base URL");
+    text(advanced, "provider", "供应商 ID");
+    text(advanced, "baseURL", "API Base URL");
     text(c, "model", "模型 ID");
-    const catalog = c.createDiv("vb-model-list");
+    const models = c.createEl("details");
+    models.createEl("summary", { text: "查看模型目录" });
+    const catalog = models.createDiv("vb-model-list");
     const showModels = (items) => {
       catalog.empty();
       for (const m of items.slice(0, 100)) {
@@ -3754,11 +3946,10 @@ class Settings extends PluginSettingTab {
     showModels(
       (this.p.catalog || []).filter((m) => m.provider === draft.provider),
     );
-    c.createEl("p", {
+    models.createEl("p", {
       cls: "na-muted",
       text: "应用并测试后会读取 OpenCode 模型目录。目录登记不等于远程模型已验证，也可以输入供应商提供的模型 ID。",
     });
-    c.createEl("h3", { text: "3 · 配置凭据" });
     const credential = c.createEl("p", {
       cls: "na-muted",
       text: "正在检查凭据来源…",
@@ -3775,36 +3966,98 @@ class Settings extends PluginSettingTab {
         });
     };
     refreshCredential();
-    new Setting(c)
-      .setName("API Key（仅本次运行）")
-      .setDesc("留空时复用 OpenCode 已保存凭据；不写入插件 data.json。")
+    let keyInput;
+    const keySetting = new Setting(c)
+      .setName("API Key")
+      .setDesc("已保存凭据时可留空。Key 不写入笔记库或插件 data.json。")
       .addText((t) => {
         t.inputEl.type = "password";
-        t.inputEl.setAttribute("aria-label", "API Key（仅本次运行）");
+        t.inputEl.setAttribute("aria-label", "API Key");
+        t.inputEl.autocomplete = "off";
+        keyInput = t.inputEl;
         t.setValue(this.keyDraft).onChange((v) => {
           this.keyDraft = v.trim();
           refreshCredential();
         });
       });
-    c.createEl("h3", { text: "4 · 应用与测试" });
-    const apply = c.createEl("button", {
+    keySetting.settingEl.addClass("vb-form-field");
+    new Setting(c).setName("凭据使用方式").addDropdown((d) =>
+      d
+        .addOptions({
+          session: "仅本次运行",
+          saved: "保存在本机，下次继续使用",
+        })
+        .setValue(this.credentialMode || "session")
+        .onChange((value) => {
+          this.credentialMode = value;
+        }),
+    );
+    c.createEl("p", {
+      cls: "na-muted",
+      text: "本机保存会更新 OpenCode 的同供应商凭据文件，供其他本机会话复用；不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
+    });
+    const actions = c.createDiv(
+      "vb-panel-actions vb-actions-start vb-settings-actions",
+    );
+    const apply = actions.createEl("button", {
       text: "应用并测试本地连接",
       cls: "mod-cta",
     });
-    const save = c.createEl("button", { text: "仅保存设置" });
+    const save = actions.createEl("button", { text: "仅保存设置" });
+    const checkCredential = actions.createEl("button", {
+      text: "检查已保存凭据",
+    });
+    checkCredential.onclick = () => {
+      credentialStatus(draft.provider, "")
+        .then((value) => {
+          if (generation === this.generation) credential.textContent = value;
+        })
+        .catch(() => {
+          credential.textContent = "无法读取凭据状态，请重试";
+        });
+    };
+    const conflict = c.createDiv({ cls: "vb-field-error" });
+    const reset = c.createEl("button", { text: "放弃草稿，载入当前配置" });
+    reset.onclick = () => {
+      this.connectionDraft = this.connectionBaseline = undefined;
+      this.keyDraft = this.p.apiKey || "";
+      this.display();
+    };
     const validate = () => {
+      const conflicts = reconcileDraft(
+        draft,
+        this.connectionBaseline,
+        this.p.settings,
+        connectionKeys,
+      );
+      for (const key of connectionKeys) {
+        const field = fields.get(key);
+        if (field && field.value !== draft[key]) field.value = draft[key];
+      }
+      conflict.textContent = conflicts.length
+        ? "配置已在其他入口更改。请载入当前配置后重新编辑，避免覆盖新设置。"
+        : "";
+      reset.hidden = !conflicts.length;
       const errors = connectionErrors(draft);
       for (const key of connectionKeys) {
         fields.get(key)?.setAttribute("aria-invalid", String(!!errors[key]));
         const error = fields.get(key + "-error");
         if (error) error.textContent = errors[key] || "";
+        if (errors[key] && ["executable", "provider", "baseURL"].includes(key))
+          advanced.open = true;
       }
       const running = !!(this.p.running || this.p.preparing);
       apply.disabled = save.disabled =
-        running || Object.keys(errors).length > 0 || !!this.applying;
+        running ||
+        Object.keys(errors).length > 0 ||
+        conflicts.length > 0 ||
+        !!this.applying;
       detect.disabled = running || !!this.detecting;
+      choose.disabled = running || !!this.applying;
     };
     const submit = async (connect) => {
+      validate();
+      if (apply.disabled) return;
       this.applying = true;
       validate();
       status.textContent = connect
@@ -3813,11 +4066,21 @@ class Settings extends PluginSettingTab {
       try {
         const items = await this.p.configureConnection(
           { ...draft },
-          { apiKey: this.keyDraft, connect },
+          {
+            apiKey: this.keyDraft,
+            connect,
+            rememberKey: this.credentialMode === "saved" && !!this.keyDraft,
+          },
         );
+        this.connectionBaseline = { ...draft };
         if (generation !== this.generation) return;
+        if (this.credentialMode === "saved") {
+          this.keyDraft = this.p.apiKey || "";
+          keyInput.value = this.keyDraft;
+          refreshCredential();
+        }
         status.textContent = connect
-          ? "本地服务和工具连接正常。供应商鉴权与远程模型仍需首次请求验证。"
+          ? "本地连接正常。回到侧栏发送“你好”验证供应商和模型。"
           : "设置已保存，下次连接生效。";
         showModels(items);
       } catch (e) {
@@ -4022,12 +4285,12 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 const { execFile } = require("node:child_process");
-const version = (executable) =>
+const version = (executable, env = process.env) =>
   new Promise((resolve, reject) => {
     execFile(
       executable,
       ["--version"],
-      { windowsHide: true, timeout: 10000, maxBuffer: 8192 },
+      { windowsHide: true, timeout: 10000, maxBuffer: 8192, env },
       (error, stdout) => {
         if (error)
           return reject(Error("无法运行 OpenCode，请检查可执行文件路径"));
@@ -4037,11 +4300,30 @@ const version = (executable) =>
       },
     );
   });
-async function detectExecutable(configured, env = process.env) {
+function executableCandidates(
+  configured,
+  env = process.env,
+  platform = process.platform,
+) {
+  const binary = platform === "win32" ? "opencode.exe" : "opencode";
+  const prefixes = [
+    env.APPDATA && path.join(env.APPDATA, "npm"),
+    env.npm_config_prefix,
+    ...(env.PATH || "").split(path.delimiter),
+    configured && path.dirname(configured),
+  ].filter(Boolean);
   const candidates = [
     ...new Set(
       [
         configured,
+        env.LOCALAPPDATA &&
+          path.join(
+            env.LOCALAPPDATA,
+            "VaultBridge",
+            "OpenCode",
+            "1.19.0",
+            binary,
+          ),
         env.LOCALAPPDATA &&
           path.join(
             env.LOCALAPPDATA,
@@ -4052,25 +4334,31 @@ async function detectExecutable(configured, env = process.env) {
             "bin",
             "opencode.exe",
           ),
-        ...(env.PATH || "")
-          .split(path.delimiter)
-          .filter(Boolean)
-          .map((p) =>
-            path.join(
-              p,
-              process.platform === "win32" ? "opencode.exe" : "opencode",
-            ),
-          ),
+        ...prefixes.flatMap((p) => [
+          path.join(p, binary),
+          path.join(p, "node_modules", "opencode-ai", "bin", binary),
+          path.join(p, "node_modules", "opencode-windows-x64", "bin", binary),
+          path.join(p, "node_modules", "opencode-windows-arm64", "bin", binary),
+        ]),
       ].filter(Boolean),
     ),
   ];
-  for (const executable of candidates) {
+  return candidates.filter((p) => !/\.(cmd|bat|ps1)$/i.test(p));
+}
+async function detectExecutable(configured, env = process.env) {
+  let unsupported;
+  for (const executable of executableCandidates(configured, env)) {
     try {
       await fs.access(executable);
-      return { executable, version: await version(executable) };
+      const found = { executable, version: await version(executable, env) };
+      if (found.version === "1.19.0") return found;
+      unsupported ||= found;
     } catch {}
   }
-  throw Error("未找到可运行的 OpenCode，请填写已安装的可执行文件路径");
+  if (unsupported) return unsupported;
+  throw Error(
+    "未找到 OpenCode 1.19.0。展开安装引导，下载并解压后选择 opencode.exe。",
+  );
 }
 async function credentialStatus(provider, sessionKey, env = process.env) {
   if (sessionKey) return "本次运行输入的 API Key";
@@ -4085,7 +4373,12 @@ async function credentialStatus(provider, sessionKey, env = process.env) {
   } catch {}
   return "未检测到保存的凭据；也可使用 OpenCode 支持的环境变量配置";
 }
-module.exports = { detectExecutable, credentialStatus, version };
+module.exports = {
+  detectExecutable,
+  credentialStatus,
+  version,
+  executableCandidates,
+};
 
 },
 function(module,exports,__load,require){
@@ -4135,7 +4428,25 @@ function modelCatalog(data, providerID) {
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
-module.exports = { connectionErrors, validateConnection, modelCatalog };
+// Merge untouched fields from the live configuration, never silently overwrite a
+// conflicting edit made while this settings draft was open.
+function reconcileDraft(draft, baseline, current, keys) {
+  const conflicts = [];
+  for (const key of keys) {
+    const value = current[key] || "";
+    if (draft[key] === baseline[key] || draft[key] === value) {
+      draft[key] = value;
+      baseline[key] = value;
+    } else if (value !== baseline[key]) conflicts.push(key);
+  }
+  return conflicts;
+}
+module.exports = {
+  connectionErrors,
+  validateConnection,
+  modelCatalog,
+  reconcileDraft,
+};
 
 },
 function(module,exports,__load,require){
@@ -5684,7 +5995,8 @@ class SessionHistory extends Modal {
       this.limit = 20;
       this.render();
     };
-    const toggle = c.createEl("button", { text: "查看已归档" });
+    const actions = c.createDiv("vb-panel-actions vb-actions-start");
+    const toggle = actions.createEl("button", { text: "查看已归档" });
     toggle.onclick = () => {
       this.archived = !this.archived;
       this.limit = 20;
@@ -5843,6 +6155,7 @@ class ModelPicker extends Modal {
         this.p.settings.model,
     });
     const input = c.createEl("input", {
+      cls: "vb-search-input",
       attr: { "aria-label": "模型 ID", placeholder: "搜索或输入模型 ID" },
     });
     const status = c.createEl("p", {
@@ -6592,6 +6905,8 @@ class WorkspacePanel extends Modal {
     this.p = p;
     this.tab = "资料";
     this.generation = 0;
+    this.resourceDraft = "";
+    this.skillDraft = p.settings.skillFolder || "";
   }
   onOpen() {
     this.render();
@@ -6635,8 +6950,16 @@ class WorkspacePanel extends Modal {
         "aria-label": "外部目录路径",
       },
     });
-    const add = c.createEl("button", { text: "添加只读目录" });
-    const choose = c.createEl("button", { text: "选择文件夹…" });
+    const resourceActions = c.createDiv("vb-panel-actions vb-actions-start");
+    const add = resourceActions.createEl("button", {
+      text: "添加只读目录",
+      cls: "mod-cta",
+    });
+    input.value = this.resourceDraft;
+    input.oninput = () => {
+      this.resourceDraft = input.value;
+    };
+    const choose = resourceActions.createEl("button", { text: "选择文件夹…" });
     choose.onclick = async () => {
       try {
         const electron = require("electron");
@@ -6650,7 +6973,7 @@ class WorkspacePanel extends Modal {
           properties: ["openDirectory"],
         });
         if (!result.canceled && result.filePaths[0])
-          input.value = result.filePaths[0];
+          input.value = this.resourceDraft = result.filePaths[0];
       } catch (e) {
         new Notice(e.message);
       }
@@ -6662,6 +6985,7 @@ class WorkspacePanel extends Modal {
         this.p.settings.externalFolders = [
           ...new Set([...(this.p.settings.externalFolders || []), root]),
         ];
+        this.resourceDraft = "";
       });
     for (const r of this.p.resources.roots()) {
       const row = c.createDiv("vb-resource-row");
@@ -6708,11 +7032,12 @@ class WorkspacePanel extends Modal {
           }),
         ),
       );
-    const recovery = c.createEl("button", {
+    const historyActions = c.createDiv("vb-panel-actions vb-actions-start");
+    const recovery = historyActions.createEl("button", {
       text: "最近操作与撤销（含外部文件）",
     });
     recovery.onclick = () => this.p.openUndoHistory();
-    const history = c.createEl("button", {
+    const history = historyActions.createEl("button", {
       text: "外部目录手动 Git 快照（可选）",
     });
     history.onclick = () => {
@@ -6724,16 +7049,17 @@ class WorkspacePanel extends Modal {
     };
     c = panels["Skills"];
     c.createEl("h3", { text: "Skill 仓库" });
-    new Setting(c)
+    const skillSetting = new Setting(c)
       .setName("本地仓库路径")
       .setDesc(
         "支持仓库根目录的 SKILL.md，以及一级子目录中的 SKILL.md。选择 Skill 才会将说明加入模型上下文；不会自动执行脚本。",
       )
-      .addText((t) =>
-        t.setValue(this.p.settings.skillFolder || "").onChange((v) => {
+      .addText((t) => {
+        t.inputEl.setAttribute("aria-label", "Skill 仓库路径");
+        t.setValue(this.skillDraft).onChange((v) => {
           this.skillDraft = v;
-        }),
-      )
+        });
+      })
       .addButton((b) =>
         b.setButtonText("保存").onClick(() =>
           this.save(async () => {
@@ -6747,10 +7073,12 @@ class WorkspacePanel extends Modal {
                 await this.p.resources.resolve(root),
               );
             this.p.settings.skillFolder = root;
+            this.skillDraft = root;
             this.p.selectedSkills.clear();
           }),
         ),
       );
+    skillSetting.settingEl.addClass("vb-form-field");
     const use = c.createEl("button", { text: "选择 Skill" });
     use.onclick = () => this.p.pickSkill().catch((e) => new Notice(e.message));
     this.files = panels["资料"].createDiv("vb-resource-files");

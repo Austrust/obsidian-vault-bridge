@@ -390,11 +390,28 @@ class NoteAgent extends Plugin {
           throw error;
         }
         this.catalog = [];
-        if (options.connect !== false) {
+        if (options.connect !== false || options.rememberKey) {
           const client = await this.connect();
+          if (options.rememberKey && this.apiKey) {
+            let saved;
+            try {
+              saved = await client.request(
+                "/auth/" + encodeURIComponent(this.settings.provider),
+                "PUT",
+                { type: "api", key: this.apiKey },
+              );
+            } catch {
+              throw Error(
+                "本机凭据保存失败，Key 仍仅在本次运行可用。请检查 OpenCode 后重试。",
+              );
+            }
+            if (saved !== true) throw Error("OpenCode 未确认凭据保存，请重试");
+            this.apiKey = "";
+          }
           const data = await client.request("/provider");
           this.catalog = modelCatalog(data, this.settings.provider);
           this.status = "本地连接已验证";
+          if (options.connect === false) await this.backend.disconnect();
         } else this.status = "连接设置已保存";
         return this.catalog;
       })
@@ -465,16 +482,27 @@ class NoteAgent extends Plugin {
         }
       : null;
   }
-  attachActive() {
+  attachActive(scope = "auto") {
     const a = this.active();
     if (!a) {
       new Notice("请先打开一篇 Markdown 笔记");
       return;
     }
-    this.mentions.add(a.path);
-    this.selection = a.selection
-      ? { path: a.path, text: a.selection, revision: hash(a.text) }
-      : null;
+    if (scope === "selection" && !a.selection) {
+      new Notice("请先在笔记中选中要引用的文字");
+      return;
+    }
+    if (scope !== "note" && a.selection) {
+      this.mentions.delete(a.path);
+      this.selection = {
+        path: a.path,
+        text: a.selection,
+        revision: hash(a.text),
+      };
+    } else {
+      this.mentions.add(a.path);
+      if (this.selection?.path === a.path) this.selection = null;
+    }
     this.refresh();
     void this.persist().catch((e) => this.fail(e));
   }

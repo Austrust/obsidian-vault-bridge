@@ -299,3 +299,72 @@ test("queue submission preserves text typed during context capture and ignores d
   assert.equal(p.draft, "next draft");
   assert(!view.queuing);
 });
+
+test("connection draft follows external model changes and blocks conflicting edits", async () => {
+  const p = {
+    settings: {
+      executable: "opencode",
+      provider: "deepseek",
+      model: "first",
+      baseURL: "https://example.test/v1",
+    },
+    apiKey: "",
+    configureConnection: async (patch) => {
+      Object.assign(p.settings, patch);
+      return [];
+    },
+  };
+  const ui = new Settings({}, p);
+  const field = () =>
+    ui.containerEl.all().find((e) => e.attributes["aria-label"] === "模型 ID");
+  ui.display();
+  ui.hide();
+  p.settings.model = "second";
+  ui.display();
+  assert.equal(field().value, "second");
+  await find(ui.containerEl, "仅保存设置").onclick();
+  assert.equal(p.settings.model, "second");
+  field().value = "my-draft";
+  field().oninput();
+  ui.hide();
+  p.settings.model = "external-third";
+  ui.display();
+  assert.equal(field().value, "my-draft");
+  assert(find(ui.containerEl, "仅保存设置").disabled);
+  await find(ui.containerEl, "仅保存设置").onclick();
+  assert.equal(p.settings.model, "external-third");
+  find(ui.containerEl, "放弃草稿，载入当前配置").onclick();
+  assert.equal(field().value, "external-third");
+});
+
+test("resource and Skill drafts survive tab switches and save exactly the visible path", async () => {
+  const { WorkspacePanel } = load("workspace-panel");
+  const p = {
+    settings: { skillFolder: "C:/old", externalFolders: [] },
+    selectedSkills: new Set(),
+    resources: {
+      roots: () => [],
+      resolve: async (x) => x,
+      listRootCheck: async () => {},
+    },
+    conversations: { idle() {} },
+    persist: async () => {},
+    refresh() {},
+  };
+  const modal = new WorkspacePanel({}, p);
+  modal.open();
+  const field = (label) =>
+    modal.contentEl.all().find((e) => e.attributes["aria-label"] === label);
+  field("外部目录路径").value = "C:/reference";
+  field("外部目录路径").oninput();
+  find(modal.contentEl, "Skills").onclick();
+  field("Skill 仓库路径").value = "C:/new";
+  field("Skill 仓库路径").oninput();
+  find(modal.contentEl, "资料").onclick();
+  assert.equal(field("外部目录路径").value, "C:/reference");
+  find(modal.contentEl, "Skills").onclick();
+  assert.equal(field("Skill 仓库路径").value, "C:/new");
+  await find(modal.contentEl, "保存").onclick();
+  assert.equal(p.settings.skillFolder, "C:/new");
+  assert.equal(field("Skill 仓库路径").value, "C:/new");
+});

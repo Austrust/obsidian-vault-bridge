@@ -44,4 +44,22 @@ function modelCatalog(data, providerID) {
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
-module.exports = { connectionErrors, validateConnection, modelCatalog };
+// Merge untouched fields from the live configuration, never silently overwrite a
+// conflicting edit made while this settings draft was open.
+function reconcileDraft(draft, baseline, current, keys) {
+  const conflicts = [];
+  for (const key of keys) {
+    const value = current[key] || "";
+    if (draft[key] === baseline[key] || draft[key] === value) {
+      draft[key] = value;
+      baseline[key] = value;
+    } else if (value !== baseline[key]) conflicts.push(key);
+  }
+  return conflicts;
+}
+module.exports = {
+  connectionErrors,
+  validateConnection,
+  modelCatalog,
+  reconcileDraft,
+};

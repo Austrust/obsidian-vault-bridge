@@ -1149,3 +1149,60 @@
   color: var(--vb-text);
   border: 1px solid var(--vb-line);
 }
+
+/* Shared form rhythm for settings and every auxiliary menu. */
+.vb-surface input:not([type="checkbox"]),
+.vb-surface select {
+  min-height: 34px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  padding: 6px 10px;
+  box-shadow: none;
+}
+.vb-surface input:focus-visible,
+.vb-surface select:focus-visible,
+.vb-surface button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+.vb-surface button { padding: 6px 12px; }
+.vb-surface .setting-item {
+  padding: 10px 0;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.vb-surface .vb-form-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.vb-surface .vb-form-field .setting-item-control { width: 100%; }
+.vb-surface .vb-form-field .setting-item-control input { width: 100%; min-width: 0; flex: 1; }
+.vb-surface .vb-form-field .setting-item-control button { flex-shrink: 0; }
+.vb-surface .vb-field-error:empty { display: none; }
+.vb-surface .vb-search-input,
+.vb-surface input[type="search"] { display: block; width: 100%; }
+.vb-actions-start { justify-content: flex-start; margin: 10px 0; }
+.vb-surface .vb-settings-actions {
+  padding: 10px 0;
+  background: var(--background-primary);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.vb-surface select { background-repeat: no-repeat; background-position: right 8px center; background-size: 16px; padding-right: 30px; }
+.vb-install-guide { border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 10px 12px; }
+.vb-install-guide li { margin: 8px 0; font-size: 13px; line-height: 1.65; }
+.vb-install-guide a { display: block; margin-top: 4px; }
+.vb-connection-advanced { padding: 6px 0; }
+.vb-surface .vb-setup-diagnostics { padding: 9px 12px; margin: 10px 0; font-size: 12px; }
+.vb-surface .vb-session-row > .vb-session-main { display: block; text-align: left; justify-content: flex-start; }
+.vb-workspace .vb-reference-chip { display: inline-flex; align-items: center; max-width: 100%; gap: 0; border: 1px solid var(--vb-line); border-radius: 8px; }
+.vb-workspace .vb-reference-chip > .vb-context-chip { border: 0; background: transparent; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vb-workspace .vb-reference-remove { flex: 0 0 26px; width: 26px; height: 26px; padding: 5px; }
+.vb-reference-preview pre,
+.vb-card-source pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 45vh; overflow: auto; user-select: text; padding: 12px; background: var(--background-secondary); border-radius: 8px; font: 12px/1.7 var(--font-monospace); }
+.vb-card-permissions { font-size: 12px; line-height: 1.6; color: var(--vb-muted); margin: 8px 0; }
+.vb-card-source { margin: 8px 0; font-size: 12px; }

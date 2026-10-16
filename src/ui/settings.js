@@ -2,8 +2,12 @@ const { PluginSettingTab, Setting, Notice } = require("obsidian");
 const {
   detectExecutable,
   credentialStatus,
+  version,
 } = require("../backend/setup-diagnostics");
-const { connectionErrors } = require("../domain/connection-settings");
+const {
+  connectionErrors,
+  reconcileDraft,
+} = require("../domain/connection-settings");
 const {
   permissionDefaults,
   permissionLabels,
@@ -66,6 +70,13 @@ class Settings extends PluginSettingTab {
     this.connectionDraft ||= Object.fromEntries(
       connectionKeys.map((k) => [k, this.p.settings[k] || ""]),
     );
+    this.connectionBaseline ||= { ...this.connectionDraft };
+    reconcileDraft(
+      this.connectionDraft,
+      this.connectionBaseline,
+      this.p.settings,
+      connectionKeys,
+    );
     this.keyDraft ??= this.p.apiKey || "";
     const draft = this.connectionDraft;
     const generation = this.generation;
@@ -73,11 +84,12 @@ class Settings extends PluginSettingTab {
     const fields = new Map();
     const status = c.createDiv({
       cls: "vb-setup-diagnostics",
-      text: "依次检查安装、供应商和凭据，再应用设置并测试本地连接。已验证 Windows / OpenCode 1.19.0。",
+      text: "选择供应商并填写 API Key，即可连接。本版使用 OpenCode 1.19.0。",
     });
     status.setAttribute("role", "status");
     const text = (parent, key, label) => {
       const setting = new Setting(parent).setName(label);
+      setting.settingEl.addClass("vb-form-field");
       setting.addText((t) => {
         t.inputEl.setAttribute("aria-label", label);
         t.setValue(draft[key]);
@@ -94,9 +106,84 @@ class Settings extends PluginSettingTab {
       error.setAttribute("role", "status");
       fields.set(key + "-error", error);
     };
-    c.createEl("h3", { text: "1 · 检测安装" });
-    text(c, "executable", "OpenCode 可执行文件");
-    const detect = c.createEl("button", { text: "自动检测安装" });
+    const advanced = c.createEl("details", { cls: "vb-connection-advanced" });
+    advanced.open =
+      draft.provider !== "deepseek" || draft.executable === "opencode";
+    advanced.createEl("summary", { text: "安装与高级连接配置" });
+    const guide = advanced.createEl("details", { cls: "vb-install-guide" });
+    guide.open = draft.executable === "opencode";
+    guide.createEl("summary", { text: "首次使用：安装 OpenCode 1.19.0" });
+    const steps = guide.createEl("ol");
+    const download = steps.createEl("li", {
+      text: "下载与你的 Windows 设备对应的压缩包：",
+    });
+    for (const [label, arch] of [
+      ["Windows x64（多数电脑）", "x64"],
+      ["Windows ARM64", "arm64"],
+    ]) {
+      download.createEl("a", {
+        text: label,
+        attr: {
+          href:
+            "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-windows-" +
+            arch +
+            ".zip",
+          target: "_blank",
+          rel: "noopener",
+        },
+      });
+    }
+    steps.createEl("li", {
+      text: "解压到固定目录（不要放在临时目录），然后点击下方“选择可执行文件”，选中解压出的 opencode.exe。无需安装 Node.js。",
+    });
+    steps.createEl("li", {
+      text: "填写 Key，选择是否保存在本机，再点击“应用并测试本地连接”。回到侧栏发送“你好”验证模型回复。",
+    });
+    guide.createEl("p", {
+      text: "下载失败时可稍后重试；不要以任意最新版替代 1.19.0。已安装 npm 版本可用自动检测。",
+    });
+    const runtimeActions = advanced.createDiv(
+      "vb-panel-actions vb-actions-start",
+    );
+    const detect = runtimeActions.createEl("button", { text: "自动检测安装" });
+    const choose = runtimeActions.createEl("button", {
+      text: "选择可执行文件",
+    });
+    text(advanced, "executable", "OpenCode 可执行文件");
+    choose.onclick = async () => {
+      try {
+        this.p.conversations.idle();
+        const electron = require("electron");
+        const dialog = electron.remote?.dialog || electron.dialog;
+        if (!dialog) {
+          advanced.open = true;
+          fields.get("executable").focus();
+          return;
+        }
+        const selected = await dialog.showOpenDialog({
+          properties: ["openFile"],
+          filters: [{ name: "OpenCode", extensions: ["exe"] }],
+        });
+        if (
+          generation !== this.generation ||
+          selected.canceled ||
+          !selected.filePaths[0]
+        )
+          return;
+        const executable = selected.filePaths[0];
+        const detected = await version(executable);
+        if (generation !== this.generation) return;
+        if (detected !== "1.19.0")
+          throw Error("需要 OpenCode 1.19.0；所选文件版本为 " + detected);
+        draft.executable = executable;
+        fields.get("executable").value = executable;
+        status.textContent = "OpenCode 1.19.0 已就绪。继续填写供应商和凭据。";
+        guide.open = false;
+        validate();
+      } catch (error) {
+        status.textContent = error.message;
+      }
+    };
     detect.disabled = busy;
     detect.onclick = async () => {
       this.detecting = true;
@@ -117,12 +204,12 @@ class Settings extends PluginSettingTab {
         validate();
       } catch (e) {
         status.textContent = e.message;
+        guide.open = true;
       } finally {
         this.detecting = false;
         validate();
       }
     };
-    c.createEl("h3", { text: "2 · 配置供应商与模型" });
     new Setting(c).setName("供应商模板").addDropdown((d) =>
       d
         .addOptions({
@@ -134,11 +221,14 @@ class Settings extends PluginSettingTab {
           if (value === "deepseek") {
             draft.provider = "deepseek";
             draft.baseURL = "https://api.deepseek.com/v1";
+            draft.model = "deepseek-flash";
           } else {
             draft.provider = "custom";
             draft.baseURL = "";
+            draft.model = "";
+            advanced.open = true;
           }
-          for (const k of ["provider", "baseURL"])
+          for (const k of ["provider", "baseURL", "model"])
             fields.get(k).value = draft[k];
           refreshCredential();
           showModels(
@@ -147,10 +237,12 @@ class Settings extends PluginSettingTab {
           validate();
         }),
     );
-    text(c, "provider", "供应商 ID");
-    text(c, "baseURL", "API Base URL");
+    text(advanced, "provider", "供应商 ID");
+    text(advanced, "baseURL", "API Base URL");
     text(c, "model", "模型 ID");
-    const catalog = c.createDiv("vb-model-list");
+    const models = c.createEl("details");
+    models.createEl("summary", { text: "查看模型目录" });
+    const catalog = models.createDiv("vb-model-list");
     const showModels = (items) => {
       catalog.empty();
       for (const m of items.slice(0, 100)) {
@@ -167,11 +259,10 @@ class Settings extends PluginSettingTab {
     showModels(
       (this.p.catalog || []).filter((m) => m.provider === draft.provider),
     );
-    c.createEl("p", {
+    models.createEl("p", {
       cls: "na-muted",
       text: "应用并测试后会读取 OpenCode 模型目录。目录登记不等于远程模型已验证，也可以输入供应商提供的模型 ID。",
     });
-    c.createEl("h3", { text: "3 · 配置凭据" });
     const credential = c.createEl("p", {
       cls: "na-muted",
       text: "正在检查凭据来源…",
@@ -188,36 +279,98 @@ class Settings extends PluginSettingTab {
         });
     };
     refreshCredential();
-    new Setting(c)
-      .setName("API Key（仅本次运行）")
-      .setDesc("留空时复用 OpenCode 已保存凭据；不写入插件 data.json。")
+    let keyInput;
+    const keySetting = new Setting(c)
+      .setName("API Key")
+      .setDesc("已保存凭据时可留空。Key 不写入笔记库或插件 data.json。")
       .addText((t) => {
         t.inputEl.type = "password";
-        t.inputEl.setAttribute("aria-label", "API Key（仅本次运行）");
+        t.inputEl.setAttribute("aria-label", "API Key");
+        t.inputEl.autocomplete = "off";
+        keyInput = t.inputEl;
         t.setValue(this.keyDraft).onChange((v) => {
           this.keyDraft = v.trim();
           refreshCredential();
         });
       });
-    c.createEl("h3", { text: "4 · 应用与测试" });
-    const apply = c.createEl("button", {
+    keySetting.settingEl.addClass("vb-form-field");
+    new Setting(c).setName("凭据使用方式").addDropdown((d) =>
+      d
+        .addOptions({
+          session: "仅本次运行",
+          saved: "保存在本机，下次继续使用",
+        })
+        .setValue(this.credentialMode || "session")
+        .onChange((value) => {
+          this.credentialMode = value;
+        }),
+    );
+    c.createEl("p", {
+      cls: "na-muted",
+      text: "本机保存会更新 OpenCode 的同供应商凭据文件，供其他本机会话复用；不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
+    });
+    const actions = c.createDiv(
+      "vb-panel-actions vb-actions-start vb-settings-actions",
+    );
+    const apply = actions.createEl("button", {
       text: "应用并测试本地连接",
       cls: "mod-cta",
     });
-    const save = c.createEl("button", { text: "仅保存设置" });
+    const save = actions.createEl("button", { text: "仅保存设置" });
+    const checkCredential = actions.createEl("button", {
+      text: "检查已保存凭据",
+    });
+    checkCredential.onclick = () => {
+      credentialStatus(draft.provider, "")
+        .then((value) => {
+          if (generation === this.generation) credential.textContent = value;
+        })
+        .catch(() => {
+          credential.textContent = "无法读取凭据状态，请重试";
+        });
+    };
+    const conflict = c.createDiv({ cls: "vb-field-error" });
+    const reset = c.createEl("button", { text: "放弃草稿，载入当前配置" });
+    reset.onclick = () => {
+      this.connectionDraft = this.connectionBaseline = undefined;
+      this.keyDraft = this.p.apiKey || "";
+      this.display();
+    };
     const validate = () => {
+      const conflicts = reconcileDraft(
+        draft,
+        this.connectionBaseline,
+        this.p.settings,
+        connectionKeys,
+      );
+      for (const key of connectionKeys) {
+        const field = fields.get(key);
+        if (field && field.value !== draft[key]) field.value = draft[key];
+      }
+      conflict.textContent = conflicts.length
+        ? "配置已在其他入口更改。请载入当前配置后重新编辑，避免覆盖新设置。"
+        : "";
+      reset.hidden = !conflicts.length;
       const errors = connectionErrors(draft);
       for (const key of connectionKeys) {
         fields.get(key)?.setAttribute("aria-invalid", String(!!errors[key]));
         const error = fields.get(key + "-error");
         if (error) error.textContent = errors[key] || "";
+        if (errors[key] && ["executable", "provider", "baseURL"].includes(key))
+          advanced.open = true;
       }
       const running = !!(this.p.running || this.p.preparing);
       apply.disabled = save.disabled =
-        running || Object.keys(errors).length > 0 || !!this.applying;
+        running ||
+        Object.keys(errors).length > 0 ||
+        conflicts.length > 0 ||
+        !!this.applying;
       detect.disabled = running || !!this.detecting;
+      choose.disabled = running || !!this.applying;
     };
     const submit = async (connect) => {
+      validate();
+      if (apply.disabled) return;
       this.applying = true;
       validate();
       status.textContent = connect
@@ -226,11 +379,21 @@ class Settings extends PluginSettingTab {
       try {
         const items = await this.p.configureConnection(
           { ...draft },
-          { apiKey: this.keyDraft, connect },
+          {
+            apiKey: this.keyDraft,
+            connect,
+            rememberKey: this.credentialMode === "saved" && !!this.keyDraft,
+          },
         );
+        this.connectionBaseline = { ...draft };
         if (generation !== this.generation) return;
+        if (this.credentialMode === "saved") {
+          this.keyDraft = this.p.apiKey || "";
+          keyInput.value = this.keyDraft;
+          refreshCredential();
+        }
         status.textContent = connect
-          ? "本地服务和工具连接正常。供应商鉴权与远程模型仍需首次请求验证。"
+          ? "本地连接正常。回到侧栏发送“你好”验证供应商和模型。"
           : "设置已保存，下次连接生效。";
         showModels(items);
       } catch (e) {

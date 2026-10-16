@@ -18,6 +18,7 @@ class ModelPicker extends Modal {
         this.p.settings.model,
     });
     const input = c.createEl("input", {
+      cls: "vb-search-input",
       attr: { "aria-label": "模型 ID", placeholder: "搜索或输入模型 ID" },
     });
     const status = c.createEl("p", {

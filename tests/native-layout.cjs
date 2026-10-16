@@ -8,6 +8,8 @@ module.exports = async function measureNativeLayout(app, qa, output) {
   const win = view.contentEl.ownerDocument.defaultView;
   const native = win.require("@electron/remote").getCurrentWindow();
   const frame = win.require("electron").webFrame;
+  const version = app.plugins.plugins["vault-bridge"].manifest.version;
+  if (native.isMaximized()) native.unmaximize();
   native.webContents.setBackgroundThrottling(false);
   native.focus();
   const results = [];
@@ -56,6 +58,14 @@ module.exports = async function measureNativeLayout(app, qa, output) {
         tailGap:
           view.log.scrollHeight - view.log.clientHeight - view.log.scrollTop,
       };
+      if (Math.abs(root.height - height) > 40)
+        throw Error(`Requested height ${height}, measured ${root.height}`);
+      if (
+        record.horizontalOverflow > 1 ||
+        !record.sendInside ||
+        !record.sendAboveStatus
+      )
+        throw Error(`Composer layout failed: ${JSON.stringify(record)}`);
       results.push(record);
       if (width === 320) {
         // capturePage uses window DIP coordinates, while DOM rects are CSS pixels.
@@ -68,7 +78,7 @@ module.exports = async function measureNativeLayout(app, qa, output) {
         fs.writeFileSync(
           path.join(
             output,
-            `native-${theme}-${width}x${height}-${zoom}-0.7.3.png`,
+            `native-${theme}-${width}x${height}-${zoom}-${version}.png`,
           ),
           shot.toPNG(),
         );
@@ -76,7 +86,7 @@ module.exports = async function measureNativeLayout(app, qa, output) {
     }
   }
   fs.writeFileSync(
-    path.join(output, "native-layout-0.7.3.json"),
+    path.join(output, `native-layout-${version}.json`),
     JSON.stringify(results, null, 2) + "\n",
   );
   return results;

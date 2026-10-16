@@ -7,6 +7,7 @@ const {
   Notice,
   setIcon,
   Menu,
+  Modal,
 } = require("obsidian");
 const { shouldSend, conversationItems } = require("../presentation");
 const { turnSummaries } = require("../presentation-turns");
@@ -15,6 +16,30 @@ const { ComposerPicker } = require("./composer-picker");
 const { showMenuAtTrigger } = require("./menu-position");
 const { renderPermission, PermissionModal } = require("./permission-modal");
 const VIEW = "note-agent-opencode";
+class ReferencePreview extends Modal {
+  constructor(app, title, read, hint) {
+    super(app);
+    Object.assign(this, { title, read, hint });
+  }
+  onOpen() {
+    this.contentEl.addClass("vb-surface", "vb-reference-preview");
+    this.contentEl.createEl("h2", { text: this.title });
+    this.contentEl.createEl("p", { text: this.hint });
+    const content = this.contentEl.createEl("pre", { text: "正在读取…" });
+    Promise.resolve()
+      .then(this.read)
+      .then((text) => {
+        if (!this.closed) content.textContent = text;
+      })
+      .catch((error) => {
+        if (!this.closed) content.textContent = error.message;
+      });
+  }
+  onClose() {
+    this.closed = true;
+    this.contentEl.empty();
+  }
+}
 class MentionModal extends FuzzySuggestModal {
   constructor(app, choose) {
     super(app);
@@ -143,7 +168,7 @@ class AgentView extends ItemView {
         suggestions,
         "",
         () => {
-          this.p.attachActive();
+          this.p.attachActive("note");
           this.input.value = prompt;
           this.p.draft = prompt;
           void this.p.persist().catch((e) => this.p.fail(e));
@@ -339,7 +364,12 @@ class AgentView extends ItemView {
     this.showMenu(event, [
       [
         ["引用笔记", "at-sign", () => this.pickMention()],
-        ["附加当前笔记或选区", "paperclip", () => this.p.attachActive()],
+        ["引用整篇当前笔记", "file-text", () => this.p.attachActive("note")],
+        [
+          "仅引用当前选区",
+          "text-select",
+          () => this.p.attachActive("selection"),
+        ],
         ["外部资料", "folder-open", () => this.p.openResources()],
         ["选择 Skill", "sparkles", () => this.p.pickSkill()],
       ],
@@ -621,21 +651,31 @@ class AgentView extends ItemView {
     this.contextSignature = signature;
     this.context.empty();
     for (const path of this.p.mentions) {
+      const group = this.context.createSpan("vb-reference-chip");
       const chip = this.button(
-        this.context,
-        "",
+        group,
+        "全文 · " + path.split("/").pop(),
+        () =>
+          new ReferencePreview(
+            this.app,
+            path,
+            async () => (await this.p.engine.read(path)).text,
+            "整篇笔记引用。发送时会重新读取当时的全文。",
+          ).open(),
+        "vb-context-chip",
+      );
+      chip.setAttribute("title", path + " · 查看全文引用");
+      this.iconButton(
+        group,
+        "移除全文引用：" + path,
+        "x",
         () => {
           this.p.mentions.delete(path);
-          if (this.p.selection?.path === path) this.p.selection = null;
           this.renderContext();
           void this.p.persist().catch((e) => this.p.fail(e));
         },
-        "vb-context-chip",
+        "vb-reference-remove",
       );
-      chip.setAttribute("title", path + " · 点击移除");
-      setIcon(chip.createSpan(), "file-text");
-      chip.createSpan({ text: path.split("/").pop() });
-      setIcon(chip.createSpan(), "x");
     }
     for (const id of this.p.selectedSkills || [])
       this.button(
@@ -661,8 +701,33 @@ class AgentView extends ItemView {
         },
         "vb-context-chip",
       );
-    if (this.p.selection)
-      this.context.createSpan({ text: "已附加选区", cls: "vb-selection-chip" });
+    if (this.p.selection) {
+      const selection = this.p.selection;
+      const group = this.context.createSpan("vb-reference-chip");
+      this.button(
+        group,
+        "仅选区 · " + selection.text.length + " 字符",
+        () =>
+          new ReferencePreview(
+            this.app,
+            selection.path,
+            () => selection.text,
+            "只附加以下选中文字的快照，不自动附加整篇笔记。Agent 的后续读取仍受工具权限控制。",
+          ).open(),
+        "vb-context-chip",
+      );
+      this.iconButton(
+        group,
+        "移除选区引用",
+        "x",
+        () => {
+          this.p.selection = null;
+          this.renderContext();
+          return this.p.persist();
+        },
+        "vb-reference-remove",
+      );
+    }
   }
   fitStatusBar() {
     const root = this.contentEl;
@@ -1119,6 +1184,13 @@ class AgentView extends ItemView {
     const record = { el, body, component };
     this.cards.set(a.id, record);
     const status = el.createDiv({ cls: "na-muted", text: "待运行" });
+    el.createEl("p", {
+      cls: "vb-card-permissions",
+      text: "此卡片运行 DataviewJS，具有 Obsidian 的执行权限，不受 Agent 工具权限限制。运行前可展开检查代码。",
+    });
+    const source = el.createEl("details", { cls: "vb-card-source" });
+    source.createEl("summary", { text: "查看卡片代码" });
+    source.createEl("pre", { text: a.code });
     const run = this.button(controls, "运行", async () => {
       run.disabled = true;
       status.textContent = "正在运行…";
