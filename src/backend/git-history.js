@@ -47,7 +47,7 @@ class GitHistory {
           'core.hooksPath=' + path.join(this.directory, 'disabled-hooks'),
           ...args,
         ],
-        { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
+        { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, shell: false },
       );
       const out = [],
         err = [];

@@ -1,6 +1,6 @@
 # VaultBridge Agent
 
-An OpenCode-powered agent sidebar for Obsidian. **[Download Windows release 0.7.6](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.6)**. The release is available for manual installation; community-directory listing is a separate review process.
+An OpenCode-powered agent sidebar for Obsidian. **[Download Windows release 0.7.7](https://github.com/Austrust/obsidian-vault-bridge/releases/tag/0.7.7)**. The release is available for manual installation; community-directory listing is a separate review process.
 
 The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) includes resolution evidence for configuration state, selection scope, onboarding and menu consistency. The 0.7.4 base was merged into `main` through PR #1; Windows CI validates each release.
 
@@ -61,6 +61,6 @@ node scripts/package.cjs
 
 Run `node tests/integration.cjs` with `OPENCODE_BIN` pointing to the installed executable. It uses an independent sample and a local scripted model, without paid API requests. The opt-in `tests/live-provider.cjs` uses existing DeepSeek credentials and a paid request only when `VAULTBRIDGE_LIVE_TEST=1` is set. `node tests/ui/server.cjs` serves the real bundle in an Obsidian UI fixture at `http://127.0.0.1:41967/`.
 
-`dist/0.7.6/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release for explicit publication. Development history and the released code are preserved on `main`. Runtime credentials, vault data, histories and caches must remain outside source control.
+`dist/0.7.7/` contains a local delivery snapshot and source/release hashes. Windows CI builds and tests a clean checkout, verifies the committed bundle and uploads the release files. Version tags prepare a draft GitHub Release for explicit publication. Development history and the released code are preserved on `main`. Runtime credentials, vault data, histories and caches must remain outside source control.
 
 From 0.7.6, each public Release attaches only `main.js`, `manifest.json` and `styles.css`. The build generates and verifies GitHub provenance attestations before preparing these attachments; the checksum report remains in CI artifacts and local packages. Verify a downloaded file using `gh attestation verify main.js --repo Austrust/obsidian-vault-bridge`, substituting the other filenames as needed.

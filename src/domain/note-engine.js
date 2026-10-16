@@ -3,6 +3,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { planUndo, applyUndo } = require("./operation-undo");
+const { validateFileNames } = require("./file-path");
 const hash = (text) => crypto.createHash("sha256").update(text).digest("hex");
 function vaultPath(value) {
   if (
@@ -15,6 +16,7 @@ function vaultPath(value) {
   )
     throw Error("需要库内相对路径");
   const parts = value.split("/");
+  validateFileNames(value);
   if (parts.some((p) => !p || p === ".." || p === "." || p.startsWith(".")))
     throw Error("不允许隐藏目录或越界路径");
   return value;

@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { validateFileNames, isRecoveryName } = require('./file-path');
 const textTypes = new Set([
   '.md',
   '.txt',
@@ -28,7 +29,7 @@ class Resources {
   isText(relative) {
     return (
       textTypes.has(path.extname(relative).toLowerCase()) &&
-      !relative.split('/').includes('VaultBridge Recovery')
+      !relative.split('/').some(isRecoveryName)
     );
   }
   async listRootCheck(root) {
@@ -48,9 +49,10 @@ class Resources {
       relative.includes('\0') ||
       relative
         .split('/')
-        .some((x) => x === '..' || x.startsWith('.') || x === 'VaultBridge Recovery')
+        .some((x) => x === '..' || x.startsWith('.') || isRecoveryName(x))
     )
       throw Error('资料路径越界或隐藏');
+    validateFileNames(relative);
     const base = await fs.realpath(root);
     let target = base;
     for (const part of relative.split('/').filter(Boolean)) {
@@ -86,7 +88,7 @@ class Resources {
   async list(id, relative = '') {
     const target = await this.resolve(this.root(id), relative);
     return (await fs.readdir(target, { withFileTypes: true }))
-      .filter((e) => !e.name.startsWith('.') && !e.isSymbolicLink())
+      .filter((e) => !e.name.startsWith('.') && !isRecoveryName(e.name) && !e.isSymbolicLink())
       .slice(0, 200)
       .map((e) => ({
         path: [relative, e.name].filter(Boolean).join('/'),

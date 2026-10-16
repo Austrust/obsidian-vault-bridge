@@ -1,4 +1,12 @@
-# 0.7.6 validation
+# 0.7.7 validation
+
+108 automated tests passed, zero failures or skips. New regressions check Windows alternate streams/device names/path aliases, recovery directory case variants, preservation of originals, ordinary external-file creation and clipboard success/failure with write-only mocks. The bundle was regenerated with `node build.cjs`; syntax and whitespace checks passed.
+
+The real OpenCode 1.19.0 integration suite passed with isolated configuration/data and a local scripted provider: tool read/edit/create, cards, history, undo, shared connection, restart, saved-credential routing, authentication/network errors, timeout, stop and startup cleanup. No user vault modifications or paid inference were used. No visual layout changed; this release does not claim a new full native visual acceptance pass. The local installation containing separate PR #2 changes was preserved.
+
+See [0.7.7 release scope](docs/RELEASE-0.7.7.md). Filesystem/process/clipboard capabilities remain intentional and disclosed; scanner warnings are not represented as resolved merely because the boundaries were strengthened.
+
+## 0.7.6 validation
 
 0.7.6 changes release metadata, the release workflow and README disclosures in response to the community review. `main.js` and `styles.css` are byte-identical to 0.7.5. The release workflow builds and tests before generating and verifying GitHub provenance attestations. Only the three supported Obsidian files are attached to the Release; checksums remain in the CI artifact and local package.
 
