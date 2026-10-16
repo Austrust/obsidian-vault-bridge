@@ -10,6 +10,7 @@ const {
   Modal,
 } = require("obsidian");
 const { shouldSend, conversationItems } = require("../presentation");
+const { usageLabel } = require("../domain/model-context");
 const { turnSummaries } = require("../presentation-turns");
 const { renderDiff } = require("./change-history");
 const { ComposerPicker } = require("./composer-picker");
@@ -108,6 +109,23 @@ class AgentView extends ItemView {
     this.title = sub.createDiv("na-session-title");
     this.status = sub.createDiv("vb-status");
     this.status.setAttribute("role", "status");
+    const contextBar = root.createDiv("vb-context-bar");
+    this.contextLabel = contextBar.createDiv("vb-context-usage");
+    this.contextLabel.setAttribute("role", "status");
+    this.contextLabel.setAttribute(
+      "title",
+      "基于模型最近一次完成请求报告的 token，包含输入、输出和缓存；不含尚未发送的草稿。压缩后在下一次回复更新。上限来自当前所选模型配置。",
+    );
+    this.compactButton = this.button(
+      contextBar,
+      "压缩上下文",
+      () => this.p.compactContext(),
+      "vb-text-button",
+    );
+    this.compactButton.setAttribute(
+      "title",
+      "调用当前模型生成摘要，会消耗 token；原始对话记录保留",
+    );
     this.branchBar = root.createDiv("vb-branch-bar");
     this.errorBox = root.createDiv("vb-error");
     this.errorBox.setAttribute("role", "alert");
@@ -477,6 +495,11 @@ class AgentView extends ItemView {
         : this.p.status || "准备就绪") +
       (elapsed ? " · " + elapsed + " 秒" : "");
     this.status.classList.toggle("is-busy", !!busy);
+    if (this.contextLabel)
+      this.contextLabel.textContent = usageLabel(this.p.contextUsage);
+    if (this.compactButton)
+      this.compactButton.disabled =
+        !!busy || !this.p.sessionId || !this.p.transcript?.length;
   }
   beginMessageEdit(id) {
     if (this.p.running || this.p.preparing) return;
@@ -567,6 +590,7 @@ class AgentView extends ItemView {
       "/history": () => this.p.chooseHistory(),
       "/new": () => this.p.newSession(),
       "/stop": () => this.p.stop(),
+      "/compact": () => this.p.compactContext(),
     };
     if (commands[text]) {
       if (this.commanding) return;

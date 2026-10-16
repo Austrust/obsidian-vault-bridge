@@ -1,5 +1,5 @@
-'use strict';
-const { messageView } = require('../presentation');
+"use strict";
+const { messageView } = require("../presentation");
 /** Harness contract: normalized sessions/messages and lifecycle operations.
  * Other backends implement this interface; no OpenCode routes leak into the service.
  */
@@ -20,44 +20,73 @@ class OpenCodeSessions {
     this.runtime.revokeRun?.(id);
   }
   createSession(title) {
-    return this.runtime.request('/session', 'POST', { title });
+    return this.runtime.request("/session", "POST", { title });
   }
   fork(id, messageID) {
-    return this.runtime.request('/session/' + id + '/fork', 'POST', messageID ? { messageID } : {});
+    return this.runtime.request(
+      "/session/" + id + "/fork",
+      "POST",
+      messageID ? { messageID } : {},
+    );
   }
   listSessions() {
-    return this.runtime.request('/session');
+    return this.runtime.request("/session");
   }
   setTitle(id, title) {
-    return this.runtime.request('/session/' + id, 'PATCH', { title });
+    return this.runtime.request("/session/" + id, "PATCH", { title });
   }
-  async messages(id, labels = {}, sourcePath = '') {
-    const messages = await this.runtime.request('/session/' + id + '/message');
+  async messages(id, labels = {}, sourcePath = "") {
+    const messages = await this.runtime.request("/session/" + id + "/message");
     return messages.map((m) => ({
       id: m.info.id,
       role: m.info.role,
       finish: m.info.finish,
       completed: !!m.info.time?.completed,
+      tokens: m.info.tokens,
+      modelID: m.info.modelID,
+      summary: !!m.info.summary,
       error: m.info.error
-        ? m.info.error.data?.message || m.info.error.name || '模型调用失败'
+        ? m.info.error.data?.message || m.info.error.name || "模型调用失败"
         : null,
       view: messageView(m, labels, sourcePath),
     }));
   }
   submit(id, model, prompt) {
-    return this.runtime.request('/session/' + id + '/prompt_async', 'POST', {
-      agent: 'note_agent',
+    return this.runtime.request("/session/" + id + "/prompt_async", "POST", {
+      agent: "note_agent",
       model,
-      parts: [{ type: 'text', text: prompt }],
+      parts: [{ type: "text", text: prompt }],
     });
   }
+  async modelContext(model) {
+    const key = `${this.runtime.generation}:${model.providerID}:${model.modelID}`;
+    if (this.contextCache?.key === key) return this.contextCache.value;
+    const data = await this.runtime.request("/provider");
+    const value =
+      data.all?.find((p) => p.id === model.providerID)?.models?.[model.modelID]
+        ?.limit?.context || null;
+    this.contextCache = { key, value };
+    return value;
+  }
+  compact(id, model, signal, timeoutMs) {
+    return this.runtime.request(
+      "/session/" + id + "/summarize",
+      "POST",
+      {
+        ...model,
+        auto: false,
+      },
+      signal,
+      timeoutMs,
+    );
+  }
   async isIdle(id) {
-    const statuses = await this.runtime.request('/session/status');
-    return !statuses[id] || statuses[id].type === 'idle';
+    const statuses = await this.runtime.request("/session/status");
+    return !statuses[id] || statuses[id].type === "idle";
   }
   abort(id) {
     // Never start a new backend merely to cancel an old task.
-    return this.runtime.client?.request('/session/' + id + '/abort', 'POST');
+    return this.runtime.client?.request("/session/" + id + "/abort", "POST");
   }
 }
 module.exports = { OpenCodeSessions };

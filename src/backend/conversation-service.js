@@ -3,6 +3,7 @@ const crypto = require("node:crypto");
 const { readableError } = require("../domain/errors");
 const { conversationTitle, displayTitle } = require("../presentation");
 const { OpenCodeSessions } = require("./opencode-sessions");
+const { contextUsage } = require("../domain/model-context");
 function buildPrompt(raw, context) {
   let text = raw.replace(/^@DeepSeek\s*/i, "");
   if (/^\/visualize(?:\s|$)/.test(text))
@@ -90,6 +91,7 @@ class ConversationService {
       this.sessionChanged(session.id, "new");
       this.state.sessionTitle = "新对话";
       this.state.transcript = [];
+      this.state.contextUsage = null;
       this.state.error = "";
       await this.persist();
       this.refresh();
@@ -105,6 +107,15 @@ class ConversationService {
     const id = state.sessionId;
     const list = await this.messages(id);
     if (this.disposed || id !== state.sessionId) return list;
+    const selectedModel = this.model?.();
+    let limit = null;
+    if (selectedModel && this.harness.modelContext) {
+      try {
+        limit = await this.harness.modelContext(selectedModel);
+      } catch {}
+    }
+    if (this.disposed || id !== state.sessionId) return list;
+    state.contextUsage = contextUsage(list, limit, selectedModel?.modelID);
     if (this.turn?.raw) {
       const user = list.find(
         (m) => m.role === "user" && !this.turn.known.has(m.id),
@@ -195,6 +206,7 @@ class ConversationService {
       this.state.sessionId = id;
       this.sessionChanged(id, "restore");
       this.state.transcript = [];
+      this.state.contextUsage = null;
       this.state.sessionTitle =
         title || (await this.title({ id })).displayTitle;
       this.state.sessionTitles[id] = this.state.sessionTitle;
@@ -241,9 +253,92 @@ class ConversationService {
     this.cancelPending();
     if (this.turn) {
       this.turn.cancelled = true;
+      this.turn.controller?.abort();
       this.harness.revokeRun?.(this.turn.id);
     }
     return this.pending?.catch(() => {}) || Promise.resolve();
+  }
+  compact() {
+    this.idle();
+    if (!this.state.sessionId) throw Error("请先创建并进行一轮对话");
+    const work = this.runCompaction();
+    this.pending = work;
+    work
+      .finally(() => {
+        if (this.pending === work) this.pending = null;
+      })
+      .catch(() => {});
+    return work;
+  }
+  async runCompaction() {
+    const state = this.state;
+    const sessionId = state.sessionId;
+    const turn = {
+      id: crypto.randomUUID(),
+      cancelled: false,
+      controller: new AbortController(),
+    };
+    this.turn = turn;
+    state.preparing = state.compacting = true;
+    state.error = "";
+    state.status = "正在压缩上下文";
+    state.turnStartedAt = Date.now();
+    this.refresh();
+    const timer = setTimeout(() => {
+      turn.timedOut = true;
+      turn.controller.abort();
+    }, this.timeoutMs);
+    const guard = () => {
+      if (this.disposed || turn.cancelled || turn.controller.signal.aborted)
+        throw Error("压缩已停止");
+    };
+    try {
+      await this.harness.connect();
+      guard();
+      const previous = await this.messages(sessionId);
+      guard();
+      if (!previous.some((m) => m.role === "user"))
+        throw Error("当前对话没有可压缩的内容");
+      const known = new Set(previous.map((m) => m.id));
+      const result = await this.harness.compact(
+        sessionId,
+        this.model(),
+        turn.controller.signal,
+        this.timeoutMs,
+      );
+      guard();
+      if (result !== true) throw Error("OpenCode 未确认压缩完成");
+      const list = await this.sync();
+      guard();
+      const added = list.filter((m) => !known.has(m.id));
+      const error = added.find((m) => m.error);
+      if (error) throw Error(error.error);
+      if (!added.some((m) => m.summary && m.completed))
+        throw Error("未生成压缩摘要，请重试");
+      state.status = "上下文已压缩";
+    } catch (error) {
+      if ((turn.cancelled || this.disposed) && !turn.timedOut)
+        state.status = "压缩已停止";
+      else {
+        state.error = turn.timedOut
+          ? "上下文压缩超时，已停止"
+          : readableError(error);
+        state.status = "压缩失败";
+        throw Error(state.error);
+      }
+    } finally {
+      clearTimeout(timer);
+      // Kill this backend after cancellation/errors too, so no model work leaks
+      // past the UI becoming idle. Compression never grants a note tool run.
+      try {
+        await this.harness.endRun?.(turn.id);
+      } finally {
+        if (this.turn === turn) this.turn = null;
+        state.preparing = state.compacting = false;
+        await this.persist();
+        this.refresh();
+      }
+    }
   }
   async run(raw, contextOverride) {
     this.idle();
@@ -393,6 +488,7 @@ class ConversationService {
     this.cancelPending();
     if (this.turn) {
       this.turn.cancelled = true;
+      this.turn.controller?.abort();
       this.harness.revokeRun?.(this.turn.id);
     }
     this.state.status = "已停止";

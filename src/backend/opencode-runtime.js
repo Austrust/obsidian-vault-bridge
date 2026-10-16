@@ -8,6 +8,7 @@ const { runtimeEnvironment } = require("./runtime-environment");
 const { startBridge } = require("./mcp-server");
 const { OpenCodeClient, agentConfig } = require("./opencode-client");
 const { validateConnection } = require("../domain/connection-settings");
+const { modelLimit, validateModelLimit } = require("../domain/model-context");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const supportedVersion = "1.19.0";
 function validateHealth(health) {
@@ -40,7 +41,9 @@ function runtimeConfig(settings, key) {
         models: {
           [settings.model]: {
             name: settings.model,
-            limit: { context: 64000, output: 8192 },
+            ...(Object.keys(modelLimit(settings)).length
+              ? { limit: validateModelLimit(modelLimit(settings)) }
+              : {}),
           },
         },
       },

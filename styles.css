@@ -1215,3 +1215,29 @@
 .vb-card-source pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 45vh; overflow: auto; user-select: text; padding: 12px; background: var(--background-secondary); border-radius: 8px; font: 12px/1.7 var(--font-monospace); }
 .vb-card-permissions { font-size: 12px; line-height: 1.6; color: var(--vb-muted); margin: 8px 0; }
 .vb-card-source { margin: 8px 0; font-size: 12px; }
+
+.vb-context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.vb-context-usage {
+  flex: 1 1 160px;
+  font-size: var(--font-smallest);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.vb-context-bar button {
+  flex-shrink: 0;
+}
+.vb-model-limit-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0;
+}

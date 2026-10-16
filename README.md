@@ -13,6 +13,7 @@ The [user-readiness audit](docs/USER-READINESS-2026-10-16.md) includes resolutio
 - **执行** performs authorized operations. **规划** allows read-only analysis. Select a model from the composer; provider and endpoint are configured in settings.
 - Edit a user message inline, then confirm to create a branch and send. Cancelling leaves the original conversation intact. Branching does not revert files.
 - Active requests show progress and elapsed time. Additional prompts enter the queue; errors pause it. Stop fences subsequent tool writes.
+- Context and output limits inherit OpenCode model configuration. The model picker supports per-endpoint/provider/model overrides; blank fields restore inheritance. Unknown limits are displayed explicitly instead of assuming 64K. The sidebar shows tokens from the last completed request (including cache and output), not cumulative session usage. Use **压缩上下文** or `/compact` to generate a summary; this costs model tokens, preserves history, supports cancellation, and refreshes usage after the next reply.
 - Review changes from each turn or the session summary. **最近操作与撤销** previews and reverses recent Agent operations without Git or a whole-vault scan. Later manual edits cause a conflict instead of being overwritten.
 - Permission requests show their target, text changes and expiry inside the conversation. They authorize one request and expire after two minutes.
 - `/visualize` creates a DataviewJS card. Run it explicitly; save it once and reopen the saved note. DataviewJS has Obsidian privileges and is not sandboxed.
