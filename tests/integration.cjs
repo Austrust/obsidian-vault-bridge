@@ -4,6 +4,8 @@ const path = require("node:path");
 const assert = require("node:assert/strict");
 const { NoteEngine } = require("../src/domain/note-engine");
 const { OpenCodeRuntime } = require("../src/backend/opencode-runtime");
+const { runtimeEnvironment } = require("../src/backend/runtime-environment");
+const { credentialStatus } = require("../src/backend/setup-diagnostics");
 const { ConversationService } = require("../src/backend/conversation-service");
 const { NoteTools } = require("../src/backend/note-tools");
 const { PermissionGate } = require("../src/domain/permissions");
@@ -12,6 +14,14 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
   const root = await fs.mkdtemp(
     path.join(require("node:os").tmpdir(), "vaultbridge-integration-"),
   );
+  // A shared desktop store that this runtime cannot open must remain untouched.
+  const desktopStore = path.join(root, "data", "opencode");
+  await fs.mkdir(desktopStore, { recursive: true });
+  const desktopDatabase = path.join(desktopStore, "opencode.db");
+  const incompatibleDatabase = Buffer.from(
+    "incompatible desktop database fixture",
+  );
+  await fs.writeFile(desktopDatabase, incompatibleDatabase);
   const notes = new Map([["测试.md", "目标：旧内容"]]);
   const artifacts = [],
     journal = [],
@@ -323,7 +333,10 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
     await new Promise((resolve) =>
       alternateProvider.listen(0, "127.0.0.1", resolve),
     );
-    const credentials = path.join(root, "data", "opencode");
+    const credentials = path.join(
+      runtimeEnvironment(runtime.env).XDG_DATA_HOME,
+      "opencode",
+    );
     await fs.mkdir(credentials, { recursive: true });
     // Exercise the same authenticated local API used by "remember on this device".
     const authClient = await runtime.connect();
@@ -338,6 +351,12 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
       await fs.readFile(path.join(credentials, "auth.json"), "utf8"),
     );
     assert.equal(savedAuth.demo.key, "saved-test-credential");
+    assert.match(await credentialStatus("demo", "", runtime.env), /已检测到/);
+    await assert.rejects(
+      fs.access(path.join(root, "data", "opencode", "auth.json")),
+      { code: "ENOENT" },
+    );
+    assert.deepEqual(await fs.readFile(desktopDatabase), incompatibleDatabase);
     await runtime.disconnect();
     runtime.apiKey = () => "";
     settings.baseURL = `http://127.0.0.1:${alternateProvider.address().port}/v1`;

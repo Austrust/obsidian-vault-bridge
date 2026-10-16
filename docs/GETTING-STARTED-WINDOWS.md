@@ -33,11 +33,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-opencode.ps1
 凭据有两种方式：
 
 - **仅本次运行**：Key 留在插件内存，重启或重载后需要重新输入。
-- **保存在本机，下次继续使用**：应用时通过本机 OpenCode 服务保存到其凭据文件。它会更新同供应商的本机凭据，供其他 OpenCode 会话共用；不会写入插件 `data.json` 或随笔记库同步。这不是操作系统密码库加密存储。
+- **保存在本机，下次继续使用**：应用时保存到 VaultBridge 专用 OpenCode 凭据文件，不与 OpenCode GUI 或普通 CLI 共用；不会写入插件 `data.json` 或随笔记库同步。这不是操作系统密码库加密存储。
+
+插件使用独立数据库，默认位于 `%LOCALAPPDATA%/VaultBridge/AgentData/opencode/`；若设置了 `XDG_DATA_HOME`，则使用该目录下的 `VaultBridge/AgentData/opencode/`。插件更新保留这个位置。GUI 与插件固定版本的数据库格式可能不同，因此不自动复制、迁移或删除 GUI 数据。首次升级到隔离版本时，请在插件中重新填写并按需保存 API Key。未来升级 OpenCode 版本时，仍需单独验证数据库迁移兼容性。
 
 点击“应用并测试本地连接”。本地连接正常后，返回侧栏发送“你好”，收到模型回复才完成供应商验证。已保存凭据时输入框可以留空；点击“检查已保存凭据”可重新读取保存状态。保存状态不是远程鉴权结果。
 
-长期配置完成后，可重启 Obsidian，再发送一条简单问题验证继续使用。OpenCode 官方还支持通过终端 `opencode auth login` 管理凭据；见[官方凭据说明](https://opencode.ai/docs/cli/#auth)。
+长期配置完成后，可重启 Obsidian，再发送一条简单问题验证继续使用。普通终端的 `opencode auth login` 使用另一数据目录，不会更新插件的独立凭据；请通过插件设置保存。
 
 ## 4. 第一次处理笔记
 

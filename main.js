@@ -12,28 +12,28 @@ const { PermissionModal } = __load(10);
 const { GitHistoryModal } = __load(14);
 const { Settings } = __load(15);
 const { ChangeHistory } = __load(7);
-const { UndoHistory } = __load(18);
-const { DEMO_CODE } = __load(19);
-const { DEFAULTS } = __load(20);
-const { WorkspaceStore } = __load(21);
-const { SessionComposer } = __load(22);
+const { UndoHistory } = __load(19);
+const { DEMO_CODE } = __load(20);
+const { DEFAULTS } = __load(21);
+const { WorkspaceStore } = __load(22);
+const { SessionComposer } = __load(23);
 const {
   validateConnection,
   modelCatalog,
-} = __load(17);
-const { OpenCodeRuntime } = __load(23);
-const { NoteTools } = __load(27);
-const { ConversationService } = __load(28);
-const { archiveJournal } = __load(31);
-const { ArtifactService } = __load(32);
-const { SessionHistory } = __load(33);
-const { ModelPicker } = __load(34);
-const { VaultAdapter } = __load(35);
-const { ExternalWorkspace } = __load(36);
-const { readableError } = __load(29);
-const { Resources } = __load(37);
-const { TurnQueue } = __load(38);
-const { WorkspacePanel, SkillPicker } = __load(39);
+} = __load(18);
+const { OpenCodeRuntime } = __load(24);
+const { NoteTools } = __load(28);
+const { ConversationService } = __load(29);
+const { archiveJournal } = __load(32);
+const { ArtifactService } = __load(33);
+const { SessionHistory } = __load(34);
+const { ModelPicker } = __load(35);
+const { VaultAdapter } = __load(36);
+const { ExternalWorkspace } = __load(37);
+const { readableError } = __load(30);
+const { Resources } = __load(38);
+const { TurnQueue } = __load(39);
+const { WorkspacePanel, SkillPicker } = __load(40);
 const LIFECYCLE = Symbol.for("vaultbridge.lifecycle");
 class NoteAgent extends Plugin {
   async onload() {
@@ -3695,7 +3695,7 @@ const {
 const {
   connectionErrors,
   reconcileDraft,
-} = __load(17);
+} = __load(18);
 const {
   permissionDefaults,
   permissionLabels,
@@ -3995,7 +3995,7 @@ class Settings extends PluginSettingTab {
     );
     c.createEl("p", {
       cls: "na-muted",
-      text: "本机保存会更新 OpenCode 的同供应商凭据文件，供其他本机会话复用；不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
+      text: "本机保存用于 VaultBridge 的后续会话，凭据与 OpenCode GUI、普通 CLI 分开存放，不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
     });
     const actions = c.createDiv(
       "vb-panel-actions vb-actions-start vb-settings-actions",
@@ -4284,7 +4284,7 @@ module.exports = { Settings };
 function(module,exports,__load,require){
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const os = require("node:os");
+const { runtimeEnvironment } = __load(17);
 const { execFile } = require("node:child_process");
 const version = (executable, env = process.env) =>
   new Promise((resolve, reject) => {
@@ -4364,7 +4364,7 @@ async function detectExecutable(configured, env = process.env) {
 async function credentialStatus(provider, sessionKey, env = process.env) {
   if (sessionKey) return "本次运行输入的 API Key";
   const file = path.join(
-    env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"),
+    runtimeEnvironment(env).XDG_DATA_HOME,
     "opencode",
     "auth.json",
   );
@@ -4380,6 +4380,27 @@ module.exports = {
   version,
   executableCandidates,
 };
+
+},
+function(module,exports,__load,require){
+const path = require("node:path");
+const os = require("node:os");
+
+// Stable across plugin upgrades and outside the vault. Never open the desktop
+// app's database: its schema may differ from our pinned OpenCode runtime.
+function runtimeEnvironment(env = process.env, platform = process.platform) {
+  const base =
+    env.XDG_DATA_HOME ||
+    (platform === "win32"
+      ? env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local")
+      : path.join(os.homedir(), ".local", "share"));
+  return {
+    ...env,
+    XDG_DATA_HOME: path.join(base, "VaultBridge", "AgentData"),
+  };
+}
+
+module.exports = { runtimeEnvironment };
 
 },
 function(module,exports,__load,require){
@@ -4736,10 +4757,11 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
 const net = require("node:net");
 const crypto = require("node:crypto");
-const { Diagnostics } = __load(24);
-const { startBridge } = __load(25);
-const { OpenCodeClient, agentConfig } = __load(26);
-const { validateConnection } = __load(17);
+const { Diagnostics } = __load(25);
+const { runtimeEnvironment } = __load(17);
+const { startBridge } = __load(26);
+const { OpenCodeClient, agentConfig } = __load(27);
+const { validateConnection } = __load(18);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const supportedVersion = "1.19.0";
 function validateHealth(health) {
@@ -4873,7 +4895,7 @@ class OpenCodeRuntime {
       {
         cwd: this.directory,
         env: {
-          ...this.env,
+          ...runtimeEnvironment(this.env),
           OPENCODE_SERVER_PASSWORD: password,
           OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
         },
@@ -5343,9 +5365,9 @@ module.exports = { NoteTools };
 function(module,exports,__load,require){
 "use strict";
 const crypto = require("node:crypto");
-const { readableError } = __load(29);
+const { readableError } = __load(30);
 const { conversationTitle, displayTitle } = __load(4);
-const { OpenCodeSessions } = __load(30);
+const { OpenCodeSessions } = __load(31);
 function buildPrompt(raw, context) {
   let text = raw.replace(/^@DeepSeek\s*/i, "");
   if (/^\/visualize(?:\s|$)/.test(text))
@@ -6137,7 +6159,7 @@ module.exports = { SessionHistory };
 },
 function(module,exports,__load,require){
 const { Modal, Notice } = require("obsidian");
-const { connectionErrors } = __load(17);
+const { connectionErrors } = __load(18);
 class ModelPicker extends Modal {
   constructor(app, p) {
     super(app);

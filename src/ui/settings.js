@@ -307,7 +307,7 @@ class Settings extends PluginSettingTab {
     );
     c.createEl("p", {
       cls: "na-muted",
-      text: "本机保存会更新 OpenCode 的同供应商凭据文件，供其他本机会话复用；不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
+      text: "本机保存用于 VaultBridge 的后续会话，凭据与 OpenCode GUI、普通 CLI 分开存放，不会随笔记库同步。仅本次运行的 Key 会在重启后清除。",
     });
     const actions = c.createDiv(
       "vb-panel-actions vb-actions-start vb-settings-actions",

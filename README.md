@@ -38,6 +38,8 @@ Dataview with JavaScript queries is required only to run interactive cards. Git 
 
 ## Network, accounts and file access
 
+The plugin runs OpenCode with a dedicated data directory, separate from the desktop app and ordinary CLI, to avoid opening an incompatible shared database. On Windows it defaults to `%LOCALAPPDATA%/VaultBridge/AgentData`; an explicit `XDG_DATA_HOME` is used as the parent instead. This location persists across plugin updates. Credential checks use the same isolated store. Existing desktop credentials and databases are not migrated: enter the provider key in plugin settings after upgrading to isolation. Future OpenCode version upgrades still require database migration validation.
+
 Existing installations under `vault-bridge` must use manual updates from this repository. Obsidian's community updater resolves that ID to the unrelated plugin; do not apply its suggested update to this installation. The new `vaultbridge-agent` ID is intended for community-managed installations.
 
 VaultBridge is free under the MIT license. Model requests require access to the configured provider; DeepSeek requires an account, API key and available API credit. Provider charges are separate from this plugin. There is no VaultBridge subscription or developer-operated inference service.

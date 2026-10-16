@@ -5,6 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 const assert = require("node:assert/strict");
 const { OpenCodeRuntime } = require("../src/backend/opencode-runtime");
+const { runtimeEnvironment } = require("../src/backend/runtime-environment");
 const { ConversationService } = require("../src/backend/conversation-service");
 const { NoteEngine } = require("../src/domain/note-engine");
 const { NoteTools } = require("../src/backend/note-tools");
@@ -16,7 +17,7 @@ const { WorkspaceStore } = require("../src/domain/workspace-store");
       "Set VAULTBRIDGE_LIVE_TEST=1 to allow synthetic provider requests",
     );
   const authPath = path.join(
-    process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"),
+    runtimeEnvironment().XDG_DATA_HOME,
     "opencode",
     "auth.json",
   );
