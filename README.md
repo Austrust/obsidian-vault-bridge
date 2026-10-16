@@ -2,6 +2,8 @@
 
 An OpenCode-powered agent sidebar for Obsidian. Current Windows release candidate: **0.7.3**. A public release has not been published.
 
+The latest [user-readiness audit](docs/USER-READINESS-2026-10-16.md) identifies open configuration-state, selection-scope, onboarding and interface issues. Earlier issue closure applies to its original review scope, not general release readiness.
+
 [中文使用说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md) · [Current validation](TEST_REPORT.md) · [Issue ledger](docs/ISSUE-STATUS.md) · [MIT license](LICENSE)
 
 ## Use
