@@ -12,6 +12,7 @@ const { ChangeHistory } = require("./ui/change-history");
 const { UndoHistory } = require("./ui/undo-history");
 const { DEMO_CODE } = require("./ui/example");
 const { DEFAULTS } = require("./config");
+const { modelKey, validateModelLimit } = require("./domain/model-context");
 const { WorkspaceStore } = require("./domain/workspace-store");
 const { SessionComposer } = require("./domain/session-composer");
 const {
@@ -371,6 +372,17 @@ class NoteAgent extends Plugin {
     new ModelPicker(this.app, this).open();
   }
   async configureConnection(patch, options = {}) {
+    if (patch.modelLimit !== undefined) {
+      const { modelLimit: limit, ...rest } = patch;
+      const target = { ...this.settings, ...rest };
+      patch = {
+        ...rest,
+        modelLimits: {
+          ...this.settings.modelLimits,
+          [modelKey(target)]: validateModelLimit(limit),
+        },
+      };
+    }
     const next = validateConnection({ ...this.settings, ...patch });
     return this.conversations
       .switchSession(async () => {
@@ -390,6 +402,7 @@ class NoteAgent extends Plugin {
           throw error;
         }
         this.catalog = [];
+        this.contextUsage = null;
         if (options.connect !== false || options.rememberKey) {
           const client = await this.connect();
           if (options.rememberKey && this.apiKey) {
@@ -430,6 +443,11 @@ class NoteAgent extends Plugin {
       );
       return this.catalog;
     });
+  }
+  async compactContext() {
+    this.conversations.idle();
+    this.turnQueue.pause();
+    return this.conversations.compact();
   }
   async undoOperation(id, wholeRun = false, preview = false) {
     this.conversations.idle();

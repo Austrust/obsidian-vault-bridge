@@ -35,6 +35,8 @@ class WorkspaceStore {
       sessionCache: data.sessionCache || [],
       messageRuns: data.messageRuns || {},
       pendingMessage: null,
+      contextUsage: null,
+      compacting: false,
       turnStartedAt: 0,
       lastFailure: data.lastFailure || null,
       sessionTitle: data.sessionTitles?.[data.sessionId] || "新对话",

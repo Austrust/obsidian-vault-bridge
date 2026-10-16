@@ -6,6 +6,11 @@ const commands = [
   { value: "/history", label: "历史对话", detail: "查找与恢复会话" },
   { value: "/new", label: "新对话", detail: "开始独立的空白会话" },
   { value: "/stop", label: "停止任务", detail: "保留已完成的操作记录" },
+  {
+    value: "/compact",
+    label: "压缩上下文",
+    detail: "调用模型生成摘要，保留对话记录",
+  },
 ];
 function tokenAt(text, caret) {
   const prefix = text.slice(0, caret);

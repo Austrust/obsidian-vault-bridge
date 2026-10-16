@@ -4,6 +4,7 @@ const p = {
   error: "",
   sessionTitle: "整理研究计划",
   sessionId: "current",
+  contextUsage: { used: 32768, limit: 131072 },
   settings: { model: "deepseek-flash" },
   mentions: new Set(["研究计划.md"]),
   journal: [],
@@ -471,6 +472,11 @@ p.availableModels = async () => [
     context: 64000,
   },
 ];
+p.compactContext = async () => {
+  p.contextUsage = { used: null, limit: 131072, compacted: true };
+  p.status = "上下文已压缩";
+  view.render();
+};
 p.configureConnection = async (patch, options = {}) => {
   p.settings = { ...p.settings, ...patch };
   if (options.apiKey !== undefined) p.apiKey = options.apiKey;

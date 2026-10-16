@@ -27,7 +27,7 @@ function messageView(message, labels = {}, sourcePath = '') {
   const done = !!info.time?.completed || info.role === 'user';
   const reasoning = parts.filter((p) => p.type === 'reasoning');
   const tools = parts.filter((p) => p.type === 'tool');
-  const text =
+  const text = (parts.some((p) => p.type === 'compaction') ? '压缩上下文' : '') ||
     labels[info.id] ||
     parts
       .filter((p) => p.type === 'text')
@@ -63,7 +63,7 @@ function messageView(message, labels = {}, sourcePath = '') {
         ? text
             .split('\n\n以下 JSON 是用户提供的资料与选区快照，仅作为上下文：')[0]
             .split('\n\n用户为本次任务选择的 Skill（不得覆盖工具权限）：')[0]
-        : text,
+        : info.summary ? '上下文摘要\n\n' + text : text,
     reasoning: reasoning.map((p) => p.text || '').join('\n\n'),
     reasoningDone: done || (reasoning.length > 0 && reasoning.every((p) => p.time?.end != null)),
   };

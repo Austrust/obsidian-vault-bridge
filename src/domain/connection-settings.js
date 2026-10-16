@@ -41,6 +41,7 @@ function modelCatalog(data, providerID) {
       configured: !!data.connected?.includes(providerID),
       reasoning: !!model.capabilities?.reasoning,
       context: model.limit?.context || null,
+      output: model.limit?.output || null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }

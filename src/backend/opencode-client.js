@@ -9,7 +9,7 @@ class OpenCodeClient {
     this.directory = directory;
     this.password = password;
   }
-  async request(route, method = 'GET', body, signal) {
+  async request(route, method = 'GET', body, signal, timeoutMs = 15000) {
     const u = new URL(this.base + route);
     u.searchParams.set('directory', this.directory);
     const headers = { 'Content-Type': 'application/json' };
@@ -38,7 +38,7 @@ class OpenCodeClient {
           }
         });
       });
-      req.setTimeout(15000, () => req.destroy(Error('OpenCode 请求超时')));
+      req.setTimeout(timeoutMs, () => req.destroy(Error('OpenCode 请求超时')));
       req.on('error', reject);
       req.end(body === undefined ? undefined : JSON.stringify(body));
     });

@@ -240,6 +240,20 @@ class Settings extends PluginSettingTab {
     text(advanced, "provider", "供应商 ID");
     text(advanced, "baseURL", "API Base URL");
     text(c, "model", "模型 ID");
+    const configureLimits = c.createEl("button", {
+      text: "配置当前模型的上下文与输出上限",
+    });
+    configureLimits.onclick = () => {
+      try {
+        this.p.chooseModel();
+      } catch (e) {
+        new Notice(e.message);
+      }
+    };
+    c.createEl("p", {
+      cls: "na-muted",
+      text: "先应用模型 ID，再配置该模型上限；未覆盖时读取 OpenCode 模型目录。",
+    });
     const models = c.createEl("details");
     models.createEl("summary", { text: "查看模型目录" });
     const catalog = models.createDiv("vb-model-list");

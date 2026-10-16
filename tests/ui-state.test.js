@@ -160,7 +160,73 @@ const { Settings } = load("settings");
 const { PermissionModal } = load("permission-modal");
 const { AgentView } = load("chat-view");
 const { ChangeHistory } = load("change-history");
+const { ModelPicker } = load("model-picker");
 const find = (root, text) => root.all().find((e) => e.textContent === text);
+
+test("model picker validates limits, resets them on model changes and saves model-specific overrides", async () => {
+  let saved;
+  const p = {
+    settings: {
+      executable: "opencode",
+      provider: "demo",
+      model: "first",
+      baseURL: "http://localhost/v1",
+    },
+    catalog: [{ id: "first", name: "first", context: 128000, output: 16000 }],
+    configureConnection: async (patch) => {
+      saved = patch;
+    },
+  };
+  const ui = new ModelPicker({}, p);
+  ui.open();
+  const field = (label) =>
+    ui.contentEl.all().find((e) => e.attributes["aria-label"] === label);
+  const cap = field("上下文上限（token）");
+  const output = field("输出上限（token）");
+  cap.value = "100";
+  cap.oninput();
+  output.value = "200";
+  output.oninput();
+  assert(find(ui.contentEl, "应用模型").disabled);
+  cap.value = "128000";
+  cap.oninput();
+  assert(!find(ui.contentEl, "应用模型").disabled);
+  const model = field("模型 ID");
+  model.value = "second";
+  model.oninput();
+  assert.equal(cap.value, "");
+  assert.equal(output.value, "");
+  cap.value = "256000";
+  cap.oninput();
+  output.value = "16000";
+  output.oninput();
+  await find(ui.contentEl, "应用模型").onclick();
+  assert.equal(saved.model, "second");
+  assert.equal(saved.modelLimit.context, 256000);
+  assert.equal(saved.modelLimit.output, 16000);
+});
+
+test("context status shows last request use and disables compression while busy or without a session", () => {
+  const view = new AgentView();
+  view.p = {
+    sessionId: "s",
+    transcript: [{}],
+    contextUsage: { used: 32000, limit: 128000 },
+  };
+  view.status = new Element();
+  view.contextLabel = new Element();
+  view.compactButton = new Element();
+  view.renderStatus();
+  assert.match(view.contextLabel.textContent, /25%/);
+  assert.equal(view.compactButton.disabled, false);
+  view.p.preparing = true;
+  view.renderStatus();
+  assert.equal(view.compactButton.disabled, true);
+  view.p.preparing = false;
+  view.p.sessionId = null;
+  view.renderStatus();
+  assert.equal(view.compactButton.disabled, true);
+});
 
 test("review filters preserve the native Modal keyboard scope", () => {
   const modal = new ChangeHistory(

@@ -6,34 +6,35 @@ const { Plugin, Notice, MarkdownView } = require("obsidian");
 const path = require("node:path");
 const { hash, NoteEngine } = __load(1);
 const { AgentView, VIEW } = __load(3);
-const { GitHistory } = __load(12);
-const { PermissionGate } = __load(13);
-const { PermissionModal } = __load(10);
-const { GitHistoryModal } = __load(14);
-const { Settings } = __load(15);
-const { ChangeHistory } = __load(7);
-const { UndoHistory } = __load(19);
-const { DEMO_CODE } = __load(20);
-const { DEFAULTS } = __load(21);
-const { WorkspaceStore } = __load(22);
-const { SessionComposer } = __load(23);
+const { GitHistory } = __load(13);
+const { PermissionGate } = __load(14);
+const { PermissionModal } = __load(11);
+const { GitHistoryModal } = __load(15);
+const { Settings } = __load(16);
+const { ChangeHistory } = __load(8);
+const { UndoHistory } = __load(20);
+const { DEMO_CODE } = __load(21);
+const { DEFAULTS } = __load(22);
+const { modelKey, validateModelLimit } = __load(5);
+const { WorkspaceStore } = __load(23);
+const { SessionComposer } = __load(24);
 const {
   validateConnection,
   modelCatalog,
-} = __load(18);
-const { OpenCodeRuntime } = __load(24);
-const { NoteTools } = __load(28);
-const { ConversationService } = __load(29);
-const { archiveJournal } = __load(32);
-const { ArtifactService } = __load(33);
-const { SessionHistory } = __load(34);
-const { ModelPicker } = __load(35);
-const { VaultAdapter } = __load(36);
-const { ExternalWorkspace } = __load(37);
-const { readableError } = __load(30);
-const { Resources } = __load(38);
-const { TurnQueue } = __load(39);
-const { WorkspacePanel, SkillPicker } = __load(40);
+} = __load(19);
+const { OpenCodeRuntime } = __load(25);
+const { NoteTools } = __load(29);
+const { ConversationService } = __load(30);
+const { archiveJournal } = __load(33);
+const { ArtifactService } = __load(34);
+const { SessionHistory } = __load(35);
+const { ModelPicker } = __load(36);
+const { VaultAdapter } = __load(37);
+const { ExternalWorkspace } = __load(38);
+const { readableError } = __load(31);
+const { Resources } = __load(39);
+const { TurnQueue } = __load(40);
+const { WorkspacePanel, SkillPicker } = __load(41);
 const LIFECYCLE = Symbol.for("vaultbridge.lifecycle");
 class NoteAgent extends Plugin {
   async onload() {
@@ -374,6 +375,17 @@ class NoteAgent extends Plugin {
     new ModelPicker(this.app, this).open();
   }
   async configureConnection(patch, options = {}) {
+    if (patch.modelLimit !== undefined) {
+      const { modelLimit: limit, ...rest } = patch;
+      const target = { ...this.settings, ...rest };
+      patch = {
+        ...rest,
+        modelLimits: {
+          ...this.settings.modelLimits,
+          [modelKey(target)]: validateModelLimit(limit),
+        },
+      };
+    }
     const next = validateConnection({ ...this.settings, ...patch });
     return this.conversations
       .switchSession(async () => {
@@ -393,6 +405,7 @@ class NoteAgent extends Plugin {
           throw error;
         }
         this.catalog = [];
+        this.contextUsage = null;
         if (options.connect !== false || options.rememberKey) {
           const client = await this.connect();
           if (options.rememberKey && this.apiKey) {
@@ -433,6 +446,11 @@ class NoteAgent extends Plugin {
       );
       return this.catalog;
     });
+  }
+  async compactContext() {
+    this.conversations.idle();
+    this.turnQueue.pause();
+    return this.conversations.compact();
   }
   async undoOperation(id, wholeRun = false, preview = false) {
     this.conversations.idle();
@@ -1150,11 +1168,12 @@ const {
   Modal,
 } = require("obsidian");
 const { shouldSend, conversationItems } = __load(4);
-const { turnSummaries } = __load(5);
-const { renderDiff } = __load(7);
-const { ComposerPicker } = __load(8);
-const { showMenuAtTrigger } = __load(9);
-const { renderPermission, PermissionModal } = __load(10);
+const { usageLabel } = __load(5);
+const { turnSummaries } = __load(6);
+const { renderDiff } = __load(8);
+const { ComposerPicker } = __load(9);
+const { showMenuAtTrigger } = __load(10);
+const { renderPermission, PermissionModal } = __load(11);
 const VIEW = "note-agent-opencode";
 class ReferencePreview extends Modal {
   constructor(app, title, read, hint) {
@@ -1248,6 +1267,23 @@ class AgentView extends ItemView {
     this.title = sub.createDiv("na-session-title");
     this.status = sub.createDiv("vb-status");
     this.status.setAttribute("role", "status");
+    const contextBar = root.createDiv("vb-context-bar");
+    this.contextLabel = contextBar.createDiv("vb-context-usage");
+    this.contextLabel.setAttribute("role", "status");
+    this.contextLabel.setAttribute(
+      "title",
+      "基于模型最近一次完成请求报告的 token，包含输入、输出和缓存；不含尚未发送的草稿。压缩后在下一次回复更新。上限来自当前所选模型配置。",
+    );
+    this.compactButton = this.button(
+      contextBar,
+      "压缩上下文",
+      () => this.p.compactContext(),
+      "vb-text-button",
+    );
+    this.compactButton.setAttribute(
+      "title",
+      "调用当前模型生成摘要，会消耗 token；原始对话记录保留",
+    );
     this.branchBar = root.createDiv("vb-branch-bar");
     this.errorBox = root.createDiv("vb-error");
     this.errorBox.setAttribute("role", "alert");
@@ -1617,6 +1653,11 @@ class AgentView extends ItemView {
         : this.p.status || "准备就绪") +
       (elapsed ? " · " + elapsed + " 秒" : "");
     this.status.classList.toggle("is-busy", !!busy);
+    if (this.contextLabel)
+      this.contextLabel.textContent = usageLabel(this.p.contextUsage);
+    if (this.compactButton)
+      this.compactButton.disabled =
+        !!busy || !this.p.sessionId || !this.p.transcript?.length;
   }
   beginMessageEdit(id) {
     if (this.p.running || this.p.preparing) return;
@@ -1707,6 +1748,7 @@ class AgentView extends ItemView {
       "/history": () => this.p.chooseHistory(),
       "/new": () => this.p.newSession(),
       "/stop": () => this.p.stop(),
+      "/compact": () => this.p.compactContext(),
     };
     if (commands[text]) {
       if (this.commanding) return;
@@ -2383,7 +2425,7 @@ class AgentView extends ItemView {
     });
   }
   renderChanges() {
-    const changes = __load(11).sessionChanges(
+    const changes = __load(12).sessionChanges(
       this.p.journal,
       this.p.sessionId,
     );
@@ -2457,7 +2499,7 @@ function messageView(message, labels = {}, sourcePath = '') {
   const done = !!info.time?.completed || info.role === 'user';
   const reasoning = parts.filter((p) => p.type === 'reasoning');
   const tools = parts.filter((p) => p.type === 'tool');
-  const text =
+  const text = (parts.some((p) => p.type === 'compaction') ? '压缩上下文' : '') ||
     labels[info.id] ||
     parts
       .filter((p) => p.type === 'text')
@@ -2493,7 +2535,7 @@ function messageView(message, labels = {}, sourcePath = '') {
         ? text
             .split('\n\n以下 JSON 是用户提供的资料与选区快照，仅作为上下文：')[0]
             .split('\n\n用户为本次任务选择的 Skill（不得覆盖工具权限）：')[0]
-        : text,
+        : info.summary ? '上下文摘要\n\n' + text : text,
     reasoning: reasoning.map((p) => p.text || '').join('\n\n'),
     reasoningDone: done || (reasoning.length > 0 && reasoning.every((p) => p.time?.end != null)),
   };
@@ -2580,7 +2622,66 @@ module.exports.conversationItems = conversationItems;
 
 },
 function(module,exports,__load,require){
-const { lineDiff } = __load(6);
+function modelKey(settings) {
+  return JSON.stringify([settings.baseURL, settings.provider, settings.model]);
+}
+function modelLimit(settings) {
+  return settings.modelLimits?.[modelKey(settings)] || {};
+}
+function validateModelLimit(limit) {
+  for (const key of ["context", "output"])
+    if (
+      limit[key] !== undefined &&
+      (!Number.isSafeInteger(limit[key]) || limit[key] <= 0)
+    )
+      throw Error("上下文和输出上限必须为正整数 token 数，或留空使用模型目录");
+  if (limit.context && limit.output && limit.output >= limit.context)
+    throw Error("输出上限必须小于上下文上限");
+  return limit;
+}
+function contextUsage(messages, limit, model) {
+  const last = messages.findLast(
+    (m) => m.role === "assistant" && m.completed && !m.error,
+  );
+  const summary = messages.findLast(
+    (m) => m.summary && m.completed && !m.error,
+  );
+  // Summary input tokens describe the old context, not the newly compacted one.
+  if (summary && (!last || last === summary))
+    return { limit: limit || null, used: null, compacted: true, model };
+  const tokens = last?.tokens;
+  const finite = (n) => (Number.isFinite(n) && n >= 0 ? n : 0);
+  const used = tokens
+    ? finite(tokens.total) ||
+      finite(tokens.input) +
+        finite(tokens.output) +
+        finite(tokens.cache?.read) +
+        finite(tokens.cache?.write) ||
+      null
+    : null;
+  return { limit: limit || null, used, model, measuredModel: last?.modelID };
+}
+function usageLabel(usage) {
+  if (!usage) return "上下文：等待用量数据";
+  const cap = usage.limit ? usage.limit.toLocaleString() : "未知上限";
+  if (usage.compacted) return `上下文已压缩 · 上限 ${cap} · 下次回复更新用量`;
+  if (usage.used === null) return `上下文：暂无用量 · 上限 ${cap}`;
+  const percent = usage.limit
+    ? ` · ${Math.round((usage.used / usage.limit) * 100)}%`
+    : "";
+  return `上次请求占用 ${usage.used.toLocaleString()} / ${cap} token${percent}`;
+}
+module.exports = {
+  modelKey,
+  modelLimit,
+  validateModelLimit,
+  contextUsage,
+  usageLabel,
+};
+
+},
+function(module,exports,__load,require){
+const { lineDiff } = __load(7);
 function turnSummaries(messages, journal, sessionId) {
   const anchors = new Map();
   for (const m of messages) {
@@ -2706,7 +2807,7 @@ module.exports = { lineDiff, diffContext };
 function(module,exports,__load,require){
 "use strict";
 const { Modal, Notice } = require("obsidian");
-const { lineDiff, diffContext } = __load(6);
+const { lineDiff, diffContext } = __load(7);
 function renderDiff(parent, entry) {
   const rows = lineDiff(entry.before || "", entry.after || "");
   const plus = rows.filter((r) => r.kind === "add").length,
@@ -2904,6 +3005,11 @@ const commands = [
   { value: "/history", label: "历史对话", detail: "查找与恢复会话" },
   { value: "/new", label: "新对话", detail: "开始独立的空白会话" },
   { value: "/stop", label: "停止任务", detail: "保留已完成的操作记录" },
+  {
+    value: "/compact",
+    label: "压缩上下文",
+    detail: "调用模型生成摘要，保留对话记录",
+  },
 ];
 function tokenAt(text, caret) {
   const prefix = text.slice(0, caret);
@@ -3052,7 +3158,7 @@ module.exports = { showMenuAtTrigger };
 },
 function(module,exports,__load,require){
 const { Modal } = require("obsidian");
-const { renderDiff } = __load(7);
+const { renderDiff } = __load(8);
 function renderPermission(c, request, finish, expand) {
   c.addClass("vb-approval", "vb-surface");
   c.createEl("h3", { text: request.label });
@@ -3691,17 +3797,17 @@ const {
   detectExecutable,
   credentialStatus,
   version,
-} = __load(16);
+} = __load(17);
 const {
   connectionErrors,
   reconcileDraft,
-} = __load(18);
+} = __load(19);
 const {
   permissionDefaults,
   permissionLabels,
   permissionPreset,
   inferPreset,
-} = __load(13);
+} = __load(14);
 const connectionKeys = ["executable", "provider", "model", "baseURL"];
 class Settings extends PluginSettingTab {
   constructor(app, p) {
@@ -3928,6 +4034,20 @@ class Settings extends PluginSettingTab {
     text(advanced, "provider", "供应商 ID");
     text(advanced, "baseURL", "API Base URL");
     text(c, "model", "模型 ID");
+    const configureLimits = c.createEl("button", {
+      text: "配置当前模型的上下文与输出上限",
+    });
+    configureLimits.onclick = () => {
+      try {
+        this.p.chooseModel();
+      } catch (e) {
+        new Notice(e.message);
+      }
+    };
+    c.createEl("p", {
+      cls: "na-muted",
+      text: "先应用模型 ID，再配置该模型上限；未覆盖时读取 OpenCode 模型目录。",
+    });
     const models = c.createEl("details");
     models.createEl("summary", { text: "查看模型目录" });
     const catalog = models.createDiv("vb-model-list");
@@ -4284,7 +4404,7 @@ module.exports = { Settings };
 function(module,exports,__load,require){
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { runtimeEnvironment } = __load(17);
+const { runtimeEnvironment } = __load(18);
 const { execFile } = require("node:child_process");
 const version = (executable, env = process.env) =>
   new Promise((resolve, reject) => {
@@ -4447,6 +4567,7 @@ function modelCatalog(data, providerID) {
       configured: !!data.connected?.includes(providerID),
       reasoning: !!model.capabilities?.reasoning,
       context: model.limit?.context || null,
+      output: model.limit?.output || null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -4475,7 +4596,7 @@ function(module,exports,__load,require){
 "use strict";
 const { Modal, Notice } = require("obsidian");
 const { recentRuns } = __load(2);
-const { renderDiff } = __load(7);
+const { renderDiff } = __load(8);
 const labels = {
   edit: "恢复原文",
   create: "移入恢复目录",
@@ -4681,6 +4802,8 @@ class WorkspaceStore {
       sessionCache: data.sessionCache || [],
       messageRuns: data.messageRuns || {},
       pendingMessage: null,
+      contextUsage: null,
+      compacting: false,
       turnStartedAt: 0,
       lastFailure: data.lastFailure || null,
       sessionTitle: data.sessionTitles?.[data.sessionId] || "新对话",
@@ -4757,11 +4880,12 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
 const net = require("node:net");
 const crypto = require("node:crypto");
-const { Diagnostics } = __load(25);
-const { runtimeEnvironment } = __load(17);
-const { startBridge } = __load(26);
-const { OpenCodeClient, agentConfig } = __load(27);
-const { validateConnection } = __load(18);
+const { Diagnostics } = __load(26);
+const { runtimeEnvironment } = __load(18);
+const { startBridge } = __load(27);
+const { OpenCodeClient, agentConfig } = __load(28);
+const { validateConnection } = __load(19);
+const { modelLimit, validateModelLimit } = __load(5);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const supportedVersion = "1.19.0";
 function validateHealth(health) {
@@ -4794,7 +4918,9 @@ function runtimeConfig(settings, key) {
         models: {
           [settings.model]: {
             name: settings.model,
-            limit: { context: 64000, output: 8192 },
+            ...(Object.keys(modelLimit(settings)).length
+              ? { limit: validateModelLimit(modelLimit(settings)) }
+              : {}),
           },
         },
       },
@@ -5219,7 +5345,7 @@ class OpenCodeClient {
     this.directory = directory;
     this.password = password;
   }
-  async request(route, method = 'GET', body, signal) {
+  async request(route, method = 'GET', body, signal, timeoutMs = 15000) {
     const u = new URL(this.base + route);
     u.searchParams.set('directory', this.directory);
     const headers = { 'Content-Type': 'application/json' };
@@ -5248,7 +5374,7 @@ class OpenCodeClient {
           }
         });
       });
-      req.setTimeout(15000, () => req.destroy(Error('OpenCode 请求超时')));
+      req.setTimeout(timeoutMs, () => req.destroy(Error('OpenCode 请求超时')));
       req.on('error', reject);
       req.end(body === undefined ? undefined : JSON.stringify(body));
     });
@@ -5365,9 +5491,10 @@ module.exports = { NoteTools };
 function(module,exports,__load,require){
 "use strict";
 const crypto = require("node:crypto");
-const { readableError } = __load(30);
+const { readableError } = __load(31);
 const { conversationTitle, displayTitle } = __load(4);
-const { OpenCodeSessions } = __load(31);
+const { OpenCodeSessions } = __load(32);
+const { contextUsage } = __load(5);
 function buildPrompt(raw, context) {
   let text = raw.replace(/^@DeepSeek\s*/i, "");
   if (/^\/visualize(?:\s|$)/.test(text))
@@ -5455,6 +5582,7 @@ class ConversationService {
       this.sessionChanged(session.id, "new");
       this.state.sessionTitle = "新对话";
       this.state.transcript = [];
+      this.state.contextUsage = null;
       this.state.error = "";
       await this.persist();
       this.refresh();
@@ -5470,6 +5598,15 @@ class ConversationService {
     const id = state.sessionId;
     const list = await this.messages(id);
     if (this.disposed || id !== state.sessionId) return list;
+    const selectedModel = this.model?.();
+    let limit = null;
+    if (selectedModel && this.harness.modelContext) {
+      try {
+        limit = await this.harness.modelContext(selectedModel);
+      } catch {}
+    }
+    if (this.disposed || id !== state.sessionId) return list;
+    state.contextUsage = contextUsage(list, limit, selectedModel?.modelID);
     if (this.turn?.raw) {
       const user = list.find(
         (m) => m.role === "user" && !this.turn.known.has(m.id),
@@ -5560,6 +5697,7 @@ class ConversationService {
       this.state.sessionId = id;
       this.sessionChanged(id, "restore");
       this.state.transcript = [];
+      this.state.contextUsage = null;
       this.state.sessionTitle =
         title || (await this.title({ id })).displayTitle;
       this.state.sessionTitles[id] = this.state.sessionTitle;
@@ -5606,9 +5744,92 @@ class ConversationService {
     this.cancelPending();
     if (this.turn) {
       this.turn.cancelled = true;
+      this.turn.controller?.abort();
       this.harness.revokeRun?.(this.turn.id);
     }
     return this.pending?.catch(() => {}) || Promise.resolve();
+  }
+  compact() {
+    this.idle();
+    if (!this.state.sessionId) throw Error("请先创建并进行一轮对话");
+    const work = this.runCompaction();
+    this.pending = work;
+    work
+      .finally(() => {
+        if (this.pending === work) this.pending = null;
+      })
+      .catch(() => {});
+    return work;
+  }
+  async runCompaction() {
+    const state = this.state;
+    const sessionId = state.sessionId;
+    const turn = {
+      id: crypto.randomUUID(),
+      cancelled: false,
+      controller: new AbortController(),
+    };
+    this.turn = turn;
+    state.preparing = state.compacting = true;
+    state.error = "";
+    state.status = "正在压缩上下文";
+    state.turnStartedAt = Date.now();
+    this.refresh();
+    const timer = setTimeout(() => {
+      turn.timedOut = true;
+      turn.controller.abort();
+    }, this.timeoutMs);
+    const guard = () => {
+      if (this.disposed || turn.cancelled || turn.controller.signal.aborted)
+        throw Error("压缩已停止");
+    };
+    try {
+      await this.harness.connect();
+      guard();
+      const previous = await this.messages(sessionId);
+      guard();
+      if (!previous.some((m) => m.role === "user"))
+        throw Error("当前对话没有可压缩的内容");
+      const known = new Set(previous.map((m) => m.id));
+      const result = await this.harness.compact(
+        sessionId,
+        this.model(),
+        turn.controller.signal,
+        this.timeoutMs,
+      );
+      guard();
+      if (result !== true) throw Error("OpenCode 未确认压缩完成");
+      const list = await this.sync();
+      guard();
+      const added = list.filter((m) => !known.has(m.id));
+      const error = added.find((m) => m.error);
+      if (error) throw Error(error.error);
+      if (!added.some((m) => m.summary && m.completed))
+        throw Error("未生成压缩摘要，请重试");
+      state.status = "上下文已压缩";
+    } catch (error) {
+      if ((turn.cancelled || this.disposed) && !turn.timedOut)
+        state.status = "压缩已停止";
+      else {
+        state.error = turn.timedOut
+          ? "上下文压缩超时，已停止"
+          : readableError(error);
+        state.status = "压缩失败";
+        throw Error(state.error);
+      }
+    } finally {
+      clearTimeout(timer);
+      // Kill this backend after cancellation/errors too, so no model work leaks
+      // past the UI becoming idle. Compression never grants a note tool run.
+      try {
+        await this.harness.endRun?.(turn.id);
+      } finally {
+        if (this.turn === turn) this.turn = null;
+        state.preparing = state.compacting = false;
+        await this.persist();
+        this.refresh();
+      }
+    }
   }
   async run(raw, contextOverride) {
     this.idle();
@@ -5758,6 +5979,7 @@ class ConversationService {
     this.cancelPending();
     if (this.turn) {
       this.turn.cancelled = true;
+      this.turn.controller?.abort();
       this.harness.revokeRun?.(this.turn.id);
     }
     this.state.status = "已停止";
@@ -5791,7 +6013,7 @@ module.exports = { readableError };
 
 },
 function(module,exports,__load,require){
-'use strict';
+"use strict";
 const { messageView } = __load(4);
 /** Harness contract: normalized sessions/messages and lifecycle operations.
  * Other backends implement this interface; no OpenCode routes leak into the service.
@@ -5813,44 +6035,73 @@ class OpenCodeSessions {
     this.runtime.revokeRun?.(id);
   }
   createSession(title) {
-    return this.runtime.request('/session', 'POST', { title });
+    return this.runtime.request("/session", "POST", { title });
   }
   fork(id, messageID) {
-    return this.runtime.request('/session/' + id + '/fork', 'POST', messageID ? { messageID } : {});
+    return this.runtime.request(
+      "/session/" + id + "/fork",
+      "POST",
+      messageID ? { messageID } : {},
+    );
   }
   listSessions() {
-    return this.runtime.request('/session');
+    return this.runtime.request("/session");
   }
   setTitle(id, title) {
-    return this.runtime.request('/session/' + id, 'PATCH', { title });
+    return this.runtime.request("/session/" + id, "PATCH", { title });
   }
-  async messages(id, labels = {}, sourcePath = '') {
-    const messages = await this.runtime.request('/session/' + id + '/message');
+  async messages(id, labels = {}, sourcePath = "") {
+    const messages = await this.runtime.request("/session/" + id + "/message");
     return messages.map((m) => ({
       id: m.info.id,
       role: m.info.role,
       finish: m.info.finish,
       completed: !!m.info.time?.completed,
+      tokens: m.info.tokens,
+      modelID: m.info.modelID,
+      summary: !!m.info.summary,
       error: m.info.error
-        ? m.info.error.data?.message || m.info.error.name || '模型调用失败'
+        ? m.info.error.data?.message || m.info.error.name || "模型调用失败"
         : null,
       view: messageView(m, labels, sourcePath),
     }));
   }
   submit(id, model, prompt) {
-    return this.runtime.request('/session/' + id + '/prompt_async', 'POST', {
-      agent: 'note_agent',
+    return this.runtime.request("/session/" + id + "/prompt_async", "POST", {
+      agent: "note_agent",
       model,
-      parts: [{ type: 'text', text: prompt }],
+      parts: [{ type: "text", text: prompt }],
     });
   }
+  async modelContext(model) {
+    const key = `${this.runtime.generation}:${model.providerID}:${model.modelID}`;
+    if (this.contextCache?.key === key) return this.contextCache.value;
+    const data = await this.runtime.request("/provider");
+    const value =
+      data.all?.find((p) => p.id === model.providerID)?.models?.[model.modelID]
+        ?.limit?.context || null;
+    this.contextCache = { key, value };
+    return value;
+  }
+  compact(id, model, signal, timeoutMs) {
+    return this.runtime.request(
+      "/session/" + id + "/summarize",
+      "POST",
+      {
+        ...model,
+        auto: false,
+      },
+      signal,
+      timeoutMs,
+    );
+  }
   async isIdle(id) {
-    const statuses = await this.runtime.request('/session/status');
-    return !statuses[id] || statuses[id].type === 'idle';
+    const statuses = await this.runtime.request("/session/status");
+    return !statuses[id] || statuses[id].type === "idle";
   }
   abort(id) {
     // Never start a new backend merely to cancel an old task.
-    return this.runtime.client?.request('/session/' + id + '/abort', 'POST');
+    return this.runtime.client?.request("/session/" + id + "/abort", "POST");
   }
 }
 module.exports = { OpenCodeSessions };
@@ -5994,8 +6245,8 @@ module.exports = { ArtifactService };
 },
 function(module,exports,__load,require){
 const { Modal, Notice, Menu } = require("obsidian");
-const { relativeTime } = __load(5);
-const { showMenuAtTrigger } = __load(9);
+const { relativeTime } = __load(6);
+const { showMenuAtTrigger } = __load(10);
 class SessionHistory extends Modal {
   constructor(app, plugin, items) {
     super(app);
@@ -6159,7 +6410,8 @@ module.exports = { SessionHistory };
 },
 function(module,exports,__load,require){
 const { Modal, Notice } = require("obsidian");
-const { connectionErrors } = __load(18);
+const { connectionErrors } = __load(19);
+const { modelLimit, validateModelLimit } = __load(5);
 class ModelPicker extends Modal {
   constructor(app, p) {
     super(app);
@@ -6187,6 +6439,42 @@ class ModelPicker extends Modal {
     });
     const refresh = c.createEl("button", { text: "读取模型目录" });
     const list = c.createDiv("vb-model-list");
+    const limits = c.createEl("details", { cls: "vb-model-limits" });
+    limits.createEl("summary", { text: "模型上下文与输出上限" });
+    limits.createEl("p", {
+      cls: "na-muted",
+      text: "留空使用 OpenCode 模型目录或本机模型配置。自定义模型未登记时，请按供应商配置填写；按 API 地址、供应商和模型分别保存。",
+    });
+    const limitFields = {};
+    for (const [key, label] of [
+      ["context", "上下文上限（token）"],
+      ["output", "输出上限（token）"],
+    ]) {
+      const row = limits.createEl("label", {
+        cls: "vb-model-limit-field",
+        text: label,
+      });
+      limitFields[key] = row.createEl("input", {
+        attr: {
+          type: "number",
+          min: "1",
+          step: "1",
+          "aria-label": label,
+          placeholder: "自动读取模型配置",
+        },
+      });
+    }
+    const limitInfo = limits.createEl("p", { cls: "na-muted" });
+    const selectedID = () => input.value.trim() || this.p.settings.model;
+    let limitsFor;
+    const readLimit = () =>
+      validateModelLimit(
+        Object.fromEntries(
+          Object.entries(limitFields)
+            .filter(([, f]) => f.value.trim())
+            .map(([key, f]) => [key, Number(f.value)]),
+        ),
+      );
     const history = [
       ...new Set([
         this.p.settings.model,
@@ -6202,6 +6490,15 @@ class ModelPicker extends Modal {
       ).values(),
     ];
     const render = () => {
+      const id = selectedID();
+      if (limitsFor !== id) {
+        const saved = modelLimit({ ...this.p.settings, model: id });
+        for (const key of Object.keys(limitFields))
+          limitFields[key].value = String(saved[key] || "");
+        limitsFor = id;
+      }
+      const metadata = this.catalog.find((m) => m.id === id);
+      limitInfo.textContent = `当前目录：上下文 ${metadata?.context?.toLocaleString() || "未知"} · 输出 ${metadata?.output?.toLocaleString() || "未知"} token`;
       list.empty();
       const filtered = items().filter((m) =>
         (m.id + " " + m.name).toLowerCase().includes(input.value.toLowerCase()),
@@ -6228,10 +6525,19 @@ class ModelPicker extends Modal {
           cls: "na-muted",
           text: "没有匹配项。可填写供应商提供的模型 ID，应用后在首次请求中验证。",
         });
-      const error = connectionErrors({
+      let error = connectionErrors({
         ...this.p.settings,
         model: input.value.trim() || this.p.settings.model,
       }).model;
+      try {
+        validateModelLimit({
+          ...(metadata?.context ? { context: metadata.context } : {}),
+          ...(metadata?.output ? { output: metadata.output } : {}),
+          ...readLimit(),
+        });
+      } catch (e) {
+        error = e.message;
+      }
       input.setAttribute("aria-invalid", String(!!error));
       save.disabled = !!error || !!this.busy;
       if (error) status.textContent = error;
@@ -6272,6 +6578,7 @@ class ModelPicker extends Modal {
         await this.p.configureConnection(
           {
             model: id,
+            modelLimit: readLimit(),
             modelHistory: [...new Set([id, ...history])].slice(0, 20),
           },
           { connect: this.p.connection === "connected" },
@@ -6288,6 +6595,7 @@ class ModelPicker extends Modal {
       }
     };
     input.oninput = render;
+    for (const field of Object.values(limitFields)) field.oninput = render;
     render();
     input.focus();
   }
@@ -6484,7 +6792,7 @@ function(module,exports,__load,require){
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { GitHistory } = __load(12);
+const { GitHistory } = __load(13);
 const { hash, replaceExact, vaultPath } = __load(1);
 class ExternalWorkspace {
   constructor({
