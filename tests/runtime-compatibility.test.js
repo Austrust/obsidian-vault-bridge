@@ -30,6 +30,7 @@ test("unsupported runtime closes its bridge before any tool registration", async
   const localRequire = createRequire(filename);
   let closed = 0;
   let configured = 0;
+  let spawnedEnv;
   const proc = new EventEmitter();
   proc.stdout = new EventEmitter();
   proc.stderr = new EventEmitter();
@@ -42,7 +43,13 @@ test("unsupported runtime closes its bridge before any tool registration", async
     clearTimeout,
     require(name) {
       if (name === "node:fs/promises") return { mkdir: async () => {} };
-      if (name === "node:child_process") return { spawn: () => proc };
+      if (name === "node:child_process")
+        return {
+          spawn: (_file, _args, options) => {
+            spawnedEnv = options.env;
+            return proc;
+          },
+        };
       if (name === "./mcp-server")
         return { startBridge: async () => ({ close: async () => closed++ }) };
       if (name === "./opencode-client")
@@ -64,6 +71,7 @@ test("unsupported runtime closes its bridge before any tool registration", async
   const states = [];
   const runtime = new context.module.exports.OpenCodeRuntime({
     directory: "unused",
+    env: { XDG_DATA_HOME: "desktop-data" },
     execute() {},
     settings: () => ({
       executable: "fixture",
@@ -74,6 +82,10 @@ test("unsupported runtime closes its bridge before any tool registration", async
     onState: (state) => states.push(state),
   });
   await assert.rejects(runtime.connect(), /版本不受支持/);
+  assert.equal(
+    spawnedEnv.XDG_DATA_HOME,
+    path.join("desktop-data", "VaultBridge", "AgentData"),
+  );
   assert.equal(configured, 0);
   assert.equal(closed, 1);
   assert.equal(runtime.resources, null);

@@ -1,6 +1,6 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const os = require("node:os");
+const { runtimeEnvironment } = require("./runtime-environment");
 const { execFile } = require("node:child_process");
 const version = (executable, env = process.env) =>
   new Promise((resolve, reject) => {
@@ -80,7 +80,7 @@ async function detectExecutable(configured, env = process.env) {
 async function credentialStatus(provider, sessionKey, env = process.env) {
   if (sessionKey) return "本次运行输入的 API Key";
   const file = path.join(
-    env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"),
+    runtimeEnvironment(env).XDG_DATA_HOME,
     "opencode",
     "auth.json",
   );

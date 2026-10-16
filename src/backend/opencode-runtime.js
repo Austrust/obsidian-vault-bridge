@@ -4,6 +4,7 @@ const fs = require("node:fs/promises");
 const net = require("node:net");
 const crypto = require("node:crypto");
 const { Diagnostics } = require("./diagnostics");
+const { runtimeEnvironment } = require("./runtime-environment");
 const { startBridge } = require("./mcp-server");
 const { OpenCodeClient, agentConfig } = require("./opencode-client");
 const { validateConnection } = require("../domain/connection-settings");
@@ -140,7 +141,7 @@ class OpenCodeRuntime {
       {
         cwd: this.directory,
         env: {
-          ...this.env,
+          ...runtimeEnvironment(this.env),
           OPENCODE_SERVER_PASSWORD: password,
           OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
         },
